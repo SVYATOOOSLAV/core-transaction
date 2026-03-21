@@ -44,11 +44,12 @@ class AccountControllerTest {
 
     private fun accountResponse(
         id: Long = 1L,
+        accountNumber: String = "1000000000000000001",
         accountType: String = "CHECKING"
     ) = AccountResponse(
         id = id,
         userId = 1L,
-        accountNumber = "40817810000000000001",
+        accountNumber = accountNumber,
         accountType = accountType,
         currency = "RUB",
         balance = BigDecimal.ZERO,
@@ -59,10 +60,10 @@ class AccountControllerTest {
     @Test
     fun `POST - createAccount - returns 201`() {
         every {
-            accountService.createAccount(1L, "40817810000000000001", AccountType.CHECKING, "RUB")
+            accountService.createAccount(1L, AccountType.CHECKING, "RUB")
         } returns accountResponse()
 
-        val request = CreateAccountRequest(1L, "40817810000000000001", "CHECKING", "RUB")
+        val request = CreateAccountRequest(1L, "CHECKING", "RUB")
 
         mockMvc.post("/api/v1/accounts") {
             contentType = MediaType.APPLICATION_JSON
@@ -71,12 +72,13 @@ class AccountControllerTest {
             status { isCreated() }
             jsonPath("$.id") { value(1) }
             jsonPath("$.accountType") { value("CHECKING") }
+            jsonPath("$.accountNumber") { value("1000000000000000001") }
         }
     }
 
     @Test
     fun `POST - createAccount - invalid account type returns 400`() {
-        val request = CreateAccountRequest(1L, "40817810000000000001", "INVALID_TYPE", "RUB")
+        val request = CreateAccountRequest(1L, "INVALID_TYPE", "RUB")
 
         mockMvc.post("/api/v1/accounts") {
             contentType = MediaType.APPLICATION_JSON
@@ -90,10 +92,10 @@ class AccountControllerTest {
     @Test
     fun `POST - createAccount - lowercase account type is accepted`() {
         every {
-            accountService.createAccount(1L, "40817810000000000001", AccountType.SAVINGS, "RUB")
-        } returns accountResponse(accountType = "SAVINGS")
+            accountService.createAccount(1L, AccountType.SAVINGS, "RUB")
+        } returns accountResponse(accountType = "SAVINGS", accountNumber = "2000000000000000001")
 
-        val request = CreateAccountRequest(1L, "40817810000000000001", "savings", "RUB")
+        val request = CreateAccountRequest(1L, "savings", "RUB")
 
         mockMvc.post("/api/v1/accounts") {
             contentType = MediaType.APPLICATION_JSON
@@ -107,10 +109,10 @@ class AccountControllerTest {
     @Test
     fun `POST - createAccount - user not found returns 404`() {
         every {
-            accountService.createAccount(99L, any(), any(), any())
+            accountService.createAccount(99L, any(), any())
         } throws BusinessException(HttpStatus.NOT_FOUND, "User with id 99 not found")
 
-        val request = CreateAccountRequest(99L, "40817810000000000001", "CHECKING", "RUB")
+        val request = CreateAccountRequest(99L, "CHECKING", "RUB")
 
         mockMvc.post("/api/v1/accounts") {
             contentType = MediaType.APPLICATION_JSON
@@ -122,19 +124,19 @@ class AccountControllerTest {
 
     @Test
     fun `GET - getAccount - returns 200`() {
-        every { accountService.getAccount(1L) } returns accountResponse()
+        every { accountService.getAccount("1000000000000000001") } returns accountResponse()
 
-        mockMvc.get("/api/v1/accounts/1").andExpect {
+        mockMvc.get("/api/v1/accounts/1000000000000000001").andExpect {
             status { isOk() }
-            jsonPath("$.accountNumber") { value("40817810000000000001") }
+            jsonPath("$.accountNumber") { value("1000000000000000001") }
         }
     }
 
     @Test
     fun `GET - getAccount - not found returns 404`() {
-        every { accountService.getAccount(99L) } throws BusinessException(HttpStatus.NOT_FOUND, "Account not found")
+        every { accountService.getAccount("9999999999999999999") } throws BusinessException(HttpStatus.NOT_FOUND, "Account not found")
 
-        mockMvc.get("/api/v1/accounts/99").andExpect {
+        mockMvc.get("/api/v1/accounts/9999999999999999999").andExpect {
             status { isNotFound() }
         }
     }
@@ -143,7 +145,7 @@ class AccountControllerTest {
     fun `GET - getAccountsByUser - returns list`() {
         every { accountService.getAccountsByUser(1L) } returns listOf(
             accountResponse(id = 1L),
-            accountResponse(id = 2L, accountType = "SAVINGS")
+            accountResponse(id = 2L, accountType = "SAVINGS", accountNumber = "2000000000000000001")
         )
 
         mockMvc.get("/api/v1/accounts/user/1").andExpect {

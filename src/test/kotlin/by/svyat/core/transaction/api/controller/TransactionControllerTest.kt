@@ -46,15 +46,15 @@ class TransactionControllerTest {
 
     private fun txResponse(
         type: TransactionType = TransactionType.TRANSFER_SAVINGS,
-        sourceId: Long? = 1L,
-        destId: Long? = 2L
+        sourceAccountNumber: String? = "1000000000000000001",
+        destAccountNumber: String? = "2000000000000000001"
     ) = TransactionResponse(
         id = 1L,
         idempotencyKey = UUID.randomUUID(),
         transactionType = type.name,
         status = TransactionStatus.COMPLETED.name,
-        sourceAccountId = sourceId,
-        destinationAccountId = destId,
+        sourceAccountNumber = sourceAccountNumber,
+        destinationAccountNumber = destAccountNumber,
         amount = BigDecimal("500.00"),
         currency = "RUB",
         description = "test",
@@ -69,7 +69,7 @@ class TransactionControllerTest {
     fun `POST savings - returns 201`() {
         every { transactionService.transferToSavings(any()) } returns txResponse(TransactionType.TRANSFER_SAVINGS)
 
-        val request = TransferRequest(UUID.randomUUID(), 1L, 2L, BigDecimal("500.00"), "test")
+        val request = TransferRequest(UUID.randomUUID(), "1000000000000000001", "2000000000000000001", BigDecimal("500.00"), "test")
 
         mockMvc.post("/api/v1/transactions/savings") {
             contentType = MediaType.APPLICATION_JSON
@@ -85,7 +85,7 @@ class TransactionControllerTest {
     fun `POST deposit - returns 201`() {
         every { transactionService.transferToDeposit(any()) } returns txResponse(TransactionType.TRANSFER_DEPOSIT)
 
-        val request = TransferRequest(UUID.randomUUID(), 1L, 2L, BigDecimal("500.00"), null)
+        val request = TransferRequest(UUID.randomUUID(), "1000000000000000001", "3000000000000000001", BigDecimal("500.00"), null)
 
         mockMvc.post("/api/v1/transactions/deposit") {
             contentType = MediaType.APPLICATION_JSON
@@ -100,7 +100,7 @@ class TransactionControllerTest {
     fun `POST brokerage - returns 201`() {
         every { transactionService.transferToBrokerage(any()) } returns txResponse(TransactionType.TRANSFER_BROKERAGE)
 
-        val request = TransferRequest(UUID.randomUUID(), 1L, 2L, BigDecimal("500.00"), null)
+        val request = TransferRequest(UUID.randomUUID(), "1000000000000000001", "4000000000000000001", BigDecimal("500.00"), null)
 
         mockMvc.post("/api/v1/transactions/brokerage") {
             contentType = MediaType.APPLICATION_JSON
@@ -136,7 +136,7 @@ class TransactionControllerTest {
     fun `POST sbp - returns 201`() {
         every { transactionService.sbpTransfer(any()) } returns txResponse(TransactionType.SBP_TRANSFER)
 
-        val request = SbpTransferRequest(UUID.randomUUID(), 1L, "+79990000000", BigDecimal("500"), null)
+        val request = SbpTransferRequest(UUID.randomUUID(), "1000000000000000001", "+79990000000", BigDecimal("500"), null)
 
         mockMvc.post("/api/v1/transactions/sbp") {
             contentType = MediaType.APPLICATION_JSON
@@ -151,9 +151,9 @@ class TransactionControllerTest {
 
     @Test
     fun `POST gift - returns 201`() {
-        every { transactionService.processMoneyGift(any()) } returns txResponse(TransactionType.MONEY_GIFT, sourceId = null, destId = 1L)
+        every { transactionService.processMoneyGift(any()) } returns txResponse(TransactionType.MONEY_GIFT, sourceAccountNumber = null, destAccountNumber = "1000000000000000001")
 
-        val request = MoneyGiftRequest(UUID.randomUUID(), 1L, BigDecimal("1000"), "Подарок")
+        val request = MoneyGiftRequest(UUID.randomUUID(), "1000000000000000001", BigDecimal("1000"), "Подарок")
 
         mockMvc.post("/api/v1/transactions/gift") {
             contentType = MediaType.APPLICATION_JSON
@@ -166,9 +166,9 @@ class TransactionControllerTest {
 
     @Test
     fun `POST compensation - returns 201`() {
-        every { transactionService.processCompensation(any()) } returns txResponse(TransactionType.COMPENSATION, sourceId = null)
+        every { transactionService.processCompensation(any()) } returns txResponse(TransactionType.COMPENSATION, sourceAccountNumber = null)
 
-        val request = CompensationRequest(UUID.randomUUID(), 1L, BigDecimal("500"), null)
+        val request = CompensationRequest(UUID.randomUUID(), "1000000000000000001", BigDecimal("500"), null)
 
         mockMvc.post("/api/v1/transactions/compensation") {
             contentType = MediaType.APPLICATION_JSON
@@ -180,9 +180,9 @@ class TransactionControllerTest {
 
     @Test
     fun `POST credit-payment - returns 201`() {
-        every { transactionService.processCreditPayment(any()) } returns txResponse(TransactionType.CREDIT_PAYMENT, sourceId = null)
+        every { transactionService.processCreditPayment(any()) } returns txResponse(TransactionType.CREDIT_PAYMENT)
 
-        val request = CreditPaymentRequest(UUID.randomUUID(), 1L, BigDecimal("300"), null)
+        val request = CreditPaymentRequest(UUID.randomUUID(), "1000000000000000001", "3000000000000000001", BigDecimal("300"), null)
 
         mockMvc.post("/api/v1/transactions/credit-payment") {
             contentType = MediaType.APPLICATION_JSON
@@ -198,8 +198,8 @@ class TransactionControllerTest {
     fun `POST savings - invalid amount returns 400`() {
         val request = mapOf(
             "idempotencyKey" to UUID.randomUUID(),
-            "sourceAccountId" to 1,
-            "destinationAccountId" to 2,
+            "sourceAccountNumber" to "1000000000000000001",
+            "destinationAccountNumber" to "2000000000000000001",
             "amount" to "0.001"
         )
 
@@ -213,7 +213,7 @@ class TransactionControllerTest {
 
     @Test
     fun `POST savings - zero amount returns 400`() {
-        val request = TransferRequest(UUID.randomUUID(), 1L, 2L, BigDecimal("0.00"), null)
+        val request = TransferRequest(UUID.randomUUID(), "1000000000000000001", "2000000000000000001", BigDecimal("0.00"), null)
 
         mockMvc.post("/api/v1/transactions/savings") {
             contentType = MediaType.APPLICATION_JSON
@@ -230,7 +230,7 @@ class TransactionControllerTest {
         every { transactionService.transferToSavings(any()) } throws
                 BusinessException(HttpStatus.BAD_REQUEST, "Insufficient funds")
 
-        val request = TransferRequest(UUID.randomUUID(), 1L, 2L, BigDecimal("500"), null)
+        val request = TransferRequest(UUID.randomUUID(), "1000000000000000001", "2000000000000000001", BigDecimal("500"), null)
 
         mockMvc.post("/api/v1/transactions/savings") {
             contentType = MediaType.APPLICATION_JSON
@@ -265,9 +265,9 @@ class TransactionControllerTest {
 
     @Test
     fun `GET transactions by account - returns list`() {
-        every { transactionService.getTransactionsByAccount(1L) } returns listOf(txResponse(), txResponse())
+        every { transactionService.getTransactionsByAccount("1000000000000000001") } returns listOf(txResponse(), txResponse())
 
-        mockMvc.get("/api/v1/transactions/account/1").andExpect {
+        mockMvc.get("/api/v1/transactions/account/1000000000000000001").andExpect {
             status { isOk() }
             jsonPath("$.length()") { value(2) }
         }

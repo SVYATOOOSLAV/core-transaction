@@ -184,7 +184,7 @@ interface TransactionApi {
 
     @Operation(
         summary = "Кредитный платёж",
-        description = "Зачисление кредитного платежа на счёт (только кредит, без дебета)"
+        description = "Перевод средств со счёта источника на кредитный счёт (дебет источника, кредит получателя)"
     )
     @ApiResponses(
         ApiResponse(responseCode = "201", description = "Транзакция выполнена"),
@@ -224,8 +224,8 @@ interface TransactionApi {
             content = [Content(array = ArraySchema(schema = Schema(implementation = TransactionResponse::class)))]
         )
     )
-    @GetMapping("/account/{accountId}")
+    @GetMapping("/account/{accountNumber}")
     fun getTransactionsByAccount(
-        @Parameter(description = "ID счёта") @PathVariable accountId: Long
+        @Parameter(description = "Номер счёта") @PathVariable accountNumber: String
     ): ResponseEntity<List<TransactionResponse>>
 }

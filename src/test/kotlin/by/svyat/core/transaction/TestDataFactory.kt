@@ -23,39 +23,39 @@ object TestDataFactory {
 
     fun accountRequest(
         userId: Long,
-        accountNumber: String = "40817810000000000001",
         accountType: String = "CHECKING",
         currency: String = "RUB"
-    ) = CreateAccountRequest(userId, accountNumber, accountType, currency)
+    ) = CreateAccountRequest(userId, accountType, currency)
 
     fun transferRequest(
-        sourceAccountId: Long,
-        destinationAccountId: Long,
+        sourceAccountNumber: String,
+        destinationAccountNumber: String,
         amount: BigDecimal = BigDecimal("500.00"),
         description: String? = null,
         idempotencyKey: UUID = UUID.randomUUID()
-    ) = TransferRequest(idempotencyKey, sourceAccountId, destinationAccountId, amount, description)
+    ) = TransferRequest(idempotencyKey, sourceAccountNumber, destinationAccountNumber, amount, description)
 
     fun moneyGiftRequest(
-        destinationAccountId: Long,
+        destinationAccountNumber: String,
         amount: BigDecimal = BigDecimal("1000.00"),
         description: String? = null,
         idempotencyKey: UUID = UUID.randomUUID()
-    ) = MoneyGiftRequest(idempotencyKey, destinationAccountId, amount, description)
+    ) = MoneyGiftRequest(idempotencyKey, destinationAccountNumber, amount, description)
 
     fun compensationRequest(
-        destinationAccountId: Long,
+        destinationAccountNumber: String,
         amount: BigDecimal = BigDecimal("500.00"),
         description: String? = null,
         idempotencyKey: UUID = UUID.randomUUID()
-    ) = CompensationRequest(idempotencyKey, destinationAccountId, amount, description)
+    ) = CompensationRequest(idempotencyKey, destinationAccountNumber, amount, description)
 
     fun creditPaymentRequest(
-        destinationAccountId: Long,
+        sourceAccountNumber: String,
+        destinationAccountNumber: String,
         amount: BigDecimal = BigDecimal("300.00"),
         description: String? = null,
         idempotencyKey: UUID = UUID.randomUUID()
-    ) = CreditPaymentRequest(idempotencyKey, destinationAccountId, amount, description)
+    ) = CreditPaymentRequest(idempotencyKey, sourceAccountNumber, destinationAccountNumber, amount, description)
 
     fun interbankTransferRequest(
         sourceCardNumber: String,
@@ -66,10 +66,10 @@ object TestDataFactory {
     ) = InterbankTransferRequest(idempotencyKey, sourceCardNumber, destinationCardNumber, amount, description)
 
     fun sbpTransferRequest(
-        sourceAccountId: Long,
+        sourceAccountNumber: String,
         recipientPhoneNumber: String,
         amount: BigDecimal = BigDecimal("500.00"),
         description: String? = null,
         idempotencyKey: UUID = UUID.randomUUID()
-    ) = SbpTransferRequest(idempotencyKey, sourceAccountId, recipientPhoneNumber, amount, description)
+    ) = SbpTransferRequest(idempotencyKey, sourceAccountNumber, recipientPhoneNumber, amount, description)
 }

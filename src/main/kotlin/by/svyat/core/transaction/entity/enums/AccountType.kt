@@ -6,17 +6,17 @@ package by.svyat.core.transaction.entity.enums
  * Определяет назначение счёта и допустимые операции с ним.
  * Хранится в колонке `account_type` таблицы `accounts`.
  */
-enum class AccountType {
+enum class AccountType(val prefix: String) {
 
     /** Расчётный (текущий) счёт — основной счёт для повседневных операций: переводы, оплата, СБП */
-    CHECKING,
+    CHECKING("1"),
 
     /** Сберегательный счёт — накопительный счёт с возможностью перевода с расчётного (endpoint `/savings`) */
-    SAVINGS,
+    SAVINGS("2"),
 
     /** Депозитный счёт — срочный вклад, пополняется переводом с расчётного (endpoint `/deposit`) */
-    DEPOSIT,
+    DEPOSIT("3"),
 
     /** Брокерский счёт — инвестиционный счёт, пополняется переводом с расчётного (endpoint `/brokerage`) */
-    BROKERAGE
+    BROKERAGE("4")
 }

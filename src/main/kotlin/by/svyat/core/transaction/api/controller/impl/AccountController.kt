@@ -27,7 +27,6 @@ class AccountController(
 
         val response = accountService.createAccount(
             userId = request.userId,
-            accountNumber = request.accountNumber,
             accountType = accountType,
             currency = request.currency
         )
@@ -35,8 +34,8 @@ class AccountController(
         return ResponseEntity(response, HttpStatus.CREATED)
     }
 
-    override fun getAccount(id: Long): ResponseEntity<AccountResponse> {
-        return ResponseEntity.ok(accountService.getAccount(id))
+    override fun getAccount(accountNumber: String): ResponseEntity<AccountResponse> {
+        return ResponseEntity.ok(accountService.getAccount(accountNumber))
     }
 
     override fun getAccountsByUser(userId: Long): ResponseEntity<List<AccountResponse>> {

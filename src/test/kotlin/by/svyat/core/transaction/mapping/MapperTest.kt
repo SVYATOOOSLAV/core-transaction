@@ -138,8 +138,8 @@ class MapperTest {
         assertEquals(key, response.idempotencyKey)
         assertEquals("TRANSFER_SAVINGS", response.transactionType)
         assertEquals("COMPLETED", response.status)
-        assertEquals(1L, response.sourceAccountId)
-        assertEquals(2L, response.destinationAccountId)
+        assertEquals("SRC", response.sourceAccountNumber)
+        assertEquals("DST", response.destinationAccountNumber)
         assertEquals(BigDecimal("999.50"), response.amount)
         assertEquals("RUB", response.currency)
         assertEquals("test description", response.description)
@@ -167,8 +167,8 @@ class MapperTest {
 
         val response = transactionMapper.toResponse(entity)
 
-        assertNull(response.sourceAccountId)
-        assertEquals(5L, response.destinationAccountId)
+        assertNull(response.sourceAccountNumber)
+        assertEquals("DST", response.destinationAccountNumber)
         assertEquals("MONEY_GIFT", response.transactionType)
     }
 
@@ -187,8 +187,8 @@ class MapperTest {
 
         assertEquals("FAILED", response.status)
         assertEquals("Insufficient funds", response.errorMessage)
-        assertNull(response.sourceAccountId)
-        assertNull(response.destinationAccountId)
+        assertNull(response.sourceAccountNumber)
+        assertNull(response.destinationAccountNumber)
         assertNull(response.completedAt)
     }
 }

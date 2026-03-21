@@ -50,13 +50,14 @@ class TransactionServiceImplTest {
 
     private fun accountEntity(
         id: Long = 1L,
+        accountNumber: String = "1000000000000000001",
         type: AccountType = AccountType.CHECKING,
         balance: BigDecimal = BigDecimal("10000.0000"),
         isActive: Boolean = true
     ) = AccountEntity(
         id = id,
         user = userEntity(),
-        accountNumber = "4081781000000000000$id",
+        accountNumber = accountNumber,
         accountType = type,
         balance = balance,
         isActive = isActive
@@ -79,16 +80,16 @@ class TransactionServiceImplTest {
         id: Long = 1L,
         key: UUID = UUID.randomUUID(),
         type: TransactionType = TransactionType.TRANSFER_SAVINGS,
-        sourceId: Long? = 1L,
-        destId: Long? = 2L,
+        sourceAccountNumber: String? = "1000000000000000001",
+        destAccountNumber: String? = "2000000000000000001",
         amount: BigDecimal = BigDecimal("500.0000")
     ) = TransactionResponse(
         id = id,
         idempotencyKey = key,
         transactionType = type.name,
         status = TransactionStatus.COMPLETED.name,
-        sourceAccountId = sourceId,
-        destinationAccountId = destId,
+        sourceAccountNumber = sourceAccountNumber,
+        destinationAccountNumber = destAccountNumber,
         amount = amount,
         currency = "RUB",
         description = null,
@@ -115,17 +116,17 @@ class TransactionServiceImplTest {
     @Test
     fun `transferToSavings - success`() {
         val key = UUID.randomUUID()
-        val source = accountEntity(id = 1L, type = AccountType.CHECKING, balance = BigDecimal("5000"))
-        val dest = accountEntity(id = 2L, type = AccountType.SAVINGS)
+        val source = accountEntity(id = 1L, accountNumber = "1000000000000000001", type = AccountType.CHECKING, balance = BigDecimal("5000"))
+        val dest = accountEntity(id = 2L, accountNumber = "2000000000000000001", type = AccountType.SAVINGS)
         val expected = txResponse(key = key, type = TransactionType.TRANSFER_SAVINGS)
 
         stubIdempotency(key)
-        every { accountRepository.findById(2L) } returns Optional.of(dest)
-        every { accountRepository.findByIdForUpdate(1L) } returns source
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns source
+        every { accountRepository.findByAccountNumberForUpdate("2000000000000000001") } returns dest
         stubAccountSave()
         stubSaveTransaction(expected)
 
-        val request = TransferRequest(key, 1L, 2L, BigDecimal("500"), "test")
+        val request = TransferRequest(key, "1000000000000000001", "2000000000000000001", BigDecimal("500"), "test")
         val result = service.transferToSavings(request)
 
         assertEquals(expected, result)
@@ -134,12 +135,14 @@ class TransactionServiceImplTest {
     @Test
     fun `transferToSavings - wrong destination type throws BAD_REQUEST`() {
         val key = UUID.randomUUID()
-        val dest = accountEntity(id = 2L, type = AccountType.CHECKING)
+        val source = accountEntity(id = 1L, accountNumber = "1000000000000000001")
+        val dest = accountEntity(id = 2L, accountNumber = "1000000000000000002", type = AccountType.CHECKING)
 
         stubIdempotency(key)
-        every { accountRepository.findById(2L) } returns Optional.of(dest)
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns source
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000002") } returns dest
 
-        val request = TransferRequest(key, 1L, 2L, BigDecimal("500"), null)
+        val request = TransferRequest(key, "1000000000000000001", "1000000000000000002", BigDecimal("500"), null)
 
         val ex = assertThrows<BusinessException> { service.transferToSavings(request) }
         assertEquals(HttpStatus.BAD_REQUEST, ex.httpStatus)
@@ -148,34 +151,34 @@ class TransactionServiceImplTest {
     @Test
     fun `transferToDeposit - success`() {
         val key = UUID.randomUUID()
-        val source = accountEntity(id = 1L)
-        val dest = accountEntity(id = 2L, type = AccountType.DEPOSIT)
+        val source = accountEntity(id = 1L, accountNumber = "1000000000000000001")
+        val dest = accountEntity(id = 2L, accountNumber = "3000000000000000001", type = AccountType.DEPOSIT)
         val expected = txResponse(key = key, type = TransactionType.TRANSFER_DEPOSIT)
 
         stubIdempotency(key)
-        every { accountRepository.findById(2L) } returns Optional.of(dest)
-        every { accountRepository.findByIdForUpdate(1L) } returns source
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns source
+        every { accountRepository.findByAccountNumberForUpdate("3000000000000000001") } returns dest
         stubAccountSave()
         stubSaveTransaction(expected)
 
-        val result = service.transferToDeposit(TransferRequest(key, 1L, 2L, BigDecimal("500"), null))
+        val result = service.transferToDeposit(TransferRequest(key, "1000000000000000001", "3000000000000000001", BigDecimal("500"), null))
         assertEquals(expected, result)
     }
 
     @Test
     fun `transferToBrokerage - success`() {
         val key = UUID.randomUUID()
-        val source = accountEntity(id = 1L)
-        val dest = accountEntity(id = 2L, type = AccountType.BROKERAGE)
+        val source = accountEntity(id = 1L, accountNumber = "1000000000000000001")
+        val dest = accountEntity(id = 2L, accountNumber = "4000000000000000001", type = AccountType.BROKERAGE)
         val expected = txResponse(key = key, type = TransactionType.TRANSFER_BROKERAGE)
 
         stubIdempotency(key)
-        every { accountRepository.findById(2L) } returns Optional.of(dest)
-        every { accountRepository.findByIdForUpdate(1L) } returns source
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns source
+        every { accountRepository.findByAccountNumberForUpdate("4000000000000000001") } returns dest
         stubAccountSave()
         stubSaveTransaction(expected)
 
-        val result = service.transferToBrokerage(TransferRequest(key, 1L, 2L, BigDecimal("500"), null))
+        val result = service.transferToBrokerage(TransferRequest(key, "1000000000000000001", "4000000000000000001", BigDecimal("500"), null))
         assertEquals(expected, result)
     }
 
@@ -190,10 +193,10 @@ class TransactionServiceImplTest {
         every { transactionRepository.findByIdempotencyKey(key) } returns existingTx
         every { transactionMapper.toResponse(existingTx) } returns expected
 
-        val result = service.transferToSavings(TransferRequest(key, 1L, 2L, BigDecimal("500"), null))
+        val result = service.transferToSavings(TransferRequest(key, "1000000000000000001", "2000000000000000001", BigDecimal("500"), null))
 
         assertEquals(expected, result)
-        verify(exactly = 0) { accountRepository.findByIdForUpdate(any()) }
+        verify(exactly = 0) { accountRepository.findByAccountNumberForUpdate(any()) }
     }
 
     // ===== lockAndValidateSource =====
@@ -201,14 +204,13 @@ class TransactionServiceImplTest {
     @Test
     fun `transfer - source account not found throws NOT_FOUND`() {
         val key = UUID.randomUUID()
-        val dest = accountEntity(id = 2L, type = AccountType.SAVINGS)
 
         stubIdempotency(key)
-        every { accountRepository.findById(2L) } returns Optional.of(dest)
-        every { accountRepository.findByIdForUpdate(1L) } returns null
+        // lockAccountsInOrder locks in order: "1..." < "2..."
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns null
 
         val ex = assertThrows<BusinessException> {
-            service.transferToSavings(TransferRequest(key, 1L, 2L, BigDecimal("500"), null))
+            service.transferToSavings(TransferRequest(key, "1000000000000000001", "2000000000000000001", BigDecimal("500"), null))
         }
         assertEquals(HttpStatus.NOT_FOUND, ex.httpStatus)
     }
@@ -216,15 +218,15 @@ class TransactionServiceImplTest {
     @Test
     fun `transfer - source account inactive throws BAD_REQUEST`() {
         val key = UUID.randomUUID()
-        val source = accountEntity(id = 1L, isActive = false)
-        val dest = accountEntity(id = 2L, type = AccountType.SAVINGS)
+        val source = accountEntity(id = 1L, accountNumber = "1000000000000000001", isActive = false)
+        val dest = accountEntity(id = 2L, accountNumber = "2000000000000000001", type = AccountType.SAVINGS)
 
         stubIdempotency(key)
-        every { accountRepository.findById(2L) } returns Optional.of(dest)
-        every { accountRepository.findByIdForUpdate(1L) } returns source
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns source
+        every { accountRepository.findByAccountNumberForUpdate("2000000000000000001") } returns dest
 
         val ex = assertThrows<BusinessException> {
-            service.transferToSavings(TransferRequest(key, 1L, 2L, BigDecimal("500"), null))
+            service.transferToSavings(TransferRequest(key, "1000000000000000001", "2000000000000000001", BigDecimal("500"), null))
         }
         assertEquals(HttpStatus.BAD_REQUEST, ex.httpStatus)
     }
@@ -232,15 +234,15 @@ class TransactionServiceImplTest {
     @Test
     fun `transfer - insufficient funds throws BAD_REQUEST`() {
         val key = UUID.randomUUID()
-        val source = accountEntity(id = 1L, balance = BigDecimal("100"))
-        val dest = accountEntity(id = 2L, type = AccountType.SAVINGS)
+        val source = accountEntity(id = 1L, accountNumber = "1000000000000000001", balance = BigDecimal("100"))
+        val dest = accountEntity(id = 2L, accountNumber = "2000000000000000001", type = AccountType.SAVINGS)
 
         stubIdempotency(key)
-        every { accountRepository.findById(2L) } returns Optional.of(dest)
-        every { accountRepository.findByIdForUpdate(1L) } returns source
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns source
+        every { accountRepository.findByAccountNumberForUpdate("2000000000000000001") } returns dest
 
         val ex = assertThrows<BusinessException> {
-            service.transferToSavings(TransferRequest(key, 1L, 2L, BigDecimal("500"), null))
+            service.transferToSavings(TransferRequest(key, "1000000000000000001", "2000000000000000001", BigDecimal("500"), null))
         }
         assertEquals(HttpStatus.BAD_REQUEST, ex.httpStatus)
     }
@@ -250,12 +252,14 @@ class TransactionServiceImplTest {
     @Test
     fun `transfer - destination account not found throws NOT_FOUND`() {
         val key = UUID.randomUUID()
+        val source = accountEntity(id = 1L, accountNumber = "1000000000000000001")
 
         stubIdempotency(key)
-        every { accountRepository.findById(2L) } returns Optional.empty()
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns source
+        every { accountRepository.findByAccountNumberForUpdate("2000000000000000001") } returns null
 
         val ex = assertThrows<BusinessException> {
-            service.transferToSavings(TransferRequest(key, 1L, 2L, BigDecimal("500"), null))
+            service.transferToSavings(TransferRequest(key, "1000000000000000001", "2000000000000000001", BigDecimal("500"), null))
         }
         assertEquals(HttpStatus.NOT_FOUND, ex.httpStatus)
     }
@@ -265,17 +269,17 @@ class TransactionServiceImplTest {
     @Test
     fun `transfer - balances are correctly updated`() {
         val key = UUID.randomUUID()
-        val source = accountEntity(id = 1L, balance = BigDecimal("5000"))
-        val dest = accountEntity(id = 2L, type = AccountType.SAVINGS, balance = BigDecimal("1000"))
+        val source = accountEntity(id = 1L, accountNumber = "1000000000000000001", balance = BigDecimal("5000"))
+        val dest = accountEntity(id = 2L, accountNumber = "2000000000000000001", type = AccountType.SAVINGS, balance = BigDecimal("1000"))
         val savedAccounts = mutableListOf<AccountEntity>()
 
         stubIdempotency(key)
-        every { accountRepository.findById(2L) } returns Optional.of(dest)
-        every { accountRepository.findByIdForUpdate(1L) } returns source
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns source
+        every { accountRepository.findByAccountNumberForUpdate("2000000000000000001") } returns dest
         every { accountRepository.save(capture(savedAccounts)) } answers { firstArg() }
         stubSaveTransaction(txResponse(key = key))
 
-        service.transferToSavings(TransferRequest(key, 1L, 2L, BigDecimal("500"), null))
+        service.transferToSavings(TransferRequest(key, "1000000000000000001", "2000000000000000001", BigDecimal("500"), null))
 
         assertEquals(BigDecimal("4500"), savedAccounts[0].balance) // source debited
         assertEquals(BigDecimal("1500"), savedAccounts[1].balance) // dest credited
@@ -286,8 +290,8 @@ class TransactionServiceImplTest {
     @Test
     fun `interbankTransfer - success`() {
         val key = UUID.randomUUID()
-        val sourceAccount = accountEntity(id = 1L, balance = BigDecimal("5000"))
-        val destAccount = accountEntity(id = 2L)
+        val sourceAccount = accountEntity(id = 1L, accountNumber = "1000000000000000001", balance = BigDecimal("5000"))
+        val destAccount = accountEntity(id = 2L, accountNumber = "1000000000000000002")
         val sourceCard = cardEntity(id = 1L, cardNumber = "4276000000000001", account = sourceAccount)
         val destCard = cardEntity(id = 2L, cardNumber = "4276000000000002", account = destAccount)
         val expected = txResponse(key = key, type = TransactionType.INTERBANK_TRANSFER)
@@ -295,8 +299,8 @@ class TransactionServiceImplTest {
         stubIdempotency(key)
         every { cardRepository.findByCardNumber("4276000000000001") } returns sourceCard
         every { cardRepository.findByCardNumber("4276000000000002") } returns destCard
-        every { accountRepository.findByIdForUpdate(1L) } returns sourceAccount
-        every { accountRepository.findById(2L) } returns Optional.of(destAccount)
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns sourceAccount
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000002") } returns destAccount
         stubAccountSave()
         stubSaveTransaction(expected)
 
@@ -368,18 +372,19 @@ class TransactionServiceImplTest {
     fun `sbpTransfer - success`() {
         val key = UUID.randomUUID()
         val recipient = userEntity(id = 2L, phone = "+79990000000")
-        val destAccount = accountEntity(id = 3L, type = AccountType.CHECKING)
-        val sourceAccount = accountEntity(id = 1L, balance = BigDecimal("5000"))
+        val destAccount = accountEntity(id = 3L, accountNumber = "1000000000000000003", type = AccountType.CHECKING)
+        val sourceAccount = accountEntity(id = 1L, accountNumber = "1000000000000000001", balance = BigDecimal("5000"))
         val expected = txResponse(key = key, type = TransactionType.SBP_TRANSFER)
 
         stubIdempotency(key)
         every { userRepository.findByPhoneNumber("+79990000000") } returns recipient
         every { accountRepository.findByUserIdAndAccountType(2L, AccountType.CHECKING) } returns destAccount
-        every { accountRepository.findByIdForUpdate(1L) } returns sourceAccount
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns sourceAccount
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000003") } returns destAccount
         stubAccountSave()
         stubSaveTransaction(expected)
 
-        val request = SbpTransferRequest(key, 1L, "+79990000000", BigDecimal("500"), null)
+        val request = SbpTransferRequest(key, "1000000000000000001", "+79990000000", BigDecimal("500"), null)
         val result = service.sbpTransfer(request)
 
         assertEquals(expected, result)
@@ -392,7 +397,7 @@ class TransactionServiceImplTest {
         every { userRepository.findByPhoneNumber("+70000000000") } returns null
 
         val ex = assertThrows<BusinessException> {
-            service.sbpTransfer(SbpTransferRequest(key, 1L, "+70000000000", BigDecimal("500"), null))
+            service.sbpTransfer(SbpTransferRequest(key, "1000000000000000001", "+70000000000", BigDecimal("500"), null))
         }
         assertEquals(HttpStatus.NOT_FOUND, ex.httpStatus)
     }
@@ -406,7 +411,7 @@ class TransactionServiceImplTest {
         every { accountRepository.findByUserIdAndAccountType(2L, AccountType.CHECKING) } returns null
 
         val ex = assertThrows<BusinessException> {
-            service.sbpTransfer(SbpTransferRequest(key, 1L, "+79990000000", BigDecimal("500"), null))
+            service.sbpTransfer(SbpTransferRequest(key, "1000000000000000001", "+79990000000", BigDecimal("500"), null))
         }
         assertEquals(HttpStatus.NOT_FOUND, ex.httpStatus)
     }
@@ -416,45 +421,47 @@ class TransactionServiceImplTest {
     @Test
     fun `processMoneyGift - success`() {
         val key = UUID.randomUUID()
-        val dest = accountEntity(id = 1L)
-        val expected = txResponse(key = key, type = TransactionType.MONEY_GIFT, sourceId = null, destId = 1L)
+        val dest = accountEntity(id = 1L, accountNumber = "1000000000000000001")
+        val expected = txResponse(key = key, type = TransactionType.MONEY_GIFT, sourceAccountNumber = null, destAccountNumber = "1000000000000000001")
 
         stubIdempotency(key)
-        every { accountRepository.findById(1L) } returns Optional.of(dest)
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns dest
         stubAccountSave()
         stubSaveTransaction(expected)
 
-        val result = service.processMoneyGift(MoneyGiftRequest(key, 1L, BigDecimal("1000"), "Подарок"))
+        val result = service.processMoneyGift(MoneyGiftRequest(key, "1000000000000000001", BigDecimal("1000"), "Подарок"))
         assertEquals(expected, result)
     }
 
     @Test
     fun `processCompensation - success`() {
         val key = UUID.randomUUID()
-        val dest = accountEntity(id = 1L)
-        val expected = txResponse(key = key, type = TransactionType.COMPENSATION, sourceId = null, destId = 1L)
+        val dest = accountEntity(id = 1L, accountNumber = "1000000000000000001")
+        val expected = txResponse(key = key, type = TransactionType.COMPENSATION, sourceAccountNumber = null, destAccountNumber = "1000000000000000001")
 
         stubIdempotency(key)
-        every { accountRepository.findById(1L) } returns Optional.of(dest)
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns dest
         stubAccountSave()
         stubSaveTransaction(expected)
 
-        val result = service.processCompensation(CompensationRequest(key, 1L, BigDecimal("500"), null))
+        val result = service.processCompensation(CompensationRequest(key, "1000000000000000001", BigDecimal("500"), null))
         assertEquals(expected, result)
     }
 
     @Test
     fun `processCreditPayment - success`() {
         val key = UUID.randomUUID()
-        val dest = accountEntity(id = 1L)
-        val expected = txResponse(key = key, type = TransactionType.CREDIT_PAYMENT, sourceId = null, destId = 1L)
+        val source = accountEntity(id = 1L, accountNumber = "1000000000000000001", balance = BigDecimal("5000"))
+        val dest = accountEntity(id = 2L, accountNumber = "3000000000000000001", type = AccountType.DEPOSIT)
+        val expected = txResponse(key = key, type = TransactionType.CREDIT_PAYMENT, sourceAccountNumber = "1000000000000000001", destAccountNumber = "3000000000000000001")
 
         stubIdempotency(key)
-        every { accountRepository.findById(1L) } returns Optional.of(dest)
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns source
+        every { accountRepository.findByAccountNumberForUpdate("3000000000000000001") } returns dest
         stubAccountSave()
         stubSaveTransaction(expected)
 
-        val result = service.processCreditPayment(CreditPaymentRequest(key, 1L, BigDecimal("300"), null))
+        val result = service.processCreditPayment(CreditPaymentRequest(key, "1000000000000000001", "3000000000000000001", BigDecimal("300"), null))
         assertEquals(expected, result)
     }
 
@@ -462,10 +469,10 @@ class TransactionServiceImplTest {
     fun `creditOnly - destination not found throws NOT_FOUND`() {
         val key = UUID.randomUUID()
         stubIdempotency(key)
-        every { accountRepository.findById(99L) } returns Optional.empty()
+        every { accountRepository.findByAccountNumberForUpdate("9999999999999999999") } returns null
 
         val ex = assertThrows<BusinessException> {
-            service.processMoneyGift(MoneyGiftRequest(key, 99L, BigDecimal("1000"), null))
+            service.processMoneyGift(MoneyGiftRequest(key, "9999999999999999999", BigDecimal("1000"), null))
         }
         assertEquals(HttpStatus.NOT_FOUND, ex.httpStatus)
     }
@@ -473,12 +480,12 @@ class TransactionServiceImplTest {
     @Test
     fun `creditOnly - inactive destination throws BAD_REQUEST`() {
         val key = UUID.randomUUID()
-        val dest = accountEntity(id = 1L, isActive = false)
+        val dest = accountEntity(id = 1L, accountNumber = "1000000000000000001", isActive = false)
         stubIdempotency(key)
-        every { accountRepository.findById(1L) } returns Optional.of(dest)
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns dest
 
         val ex = assertThrows<BusinessException> {
-            service.processMoneyGift(MoneyGiftRequest(key, 1L, BigDecimal("1000"), null))
+            service.processMoneyGift(MoneyGiftRequest(key, "1000000000000000001", BigDecimal("1000"), null))
         }
         assertEquals(HttpStatus.BAD_REQUEST, ex.httpStatus)
     }
@@ -486,15 +493,15 @@ class TransactionServiceImplTest {
     @Test
     fun `creditOnly - balance is increased`() {
         val key = UUID.randomUUID()
-        val dest = accountEntity(id = 1L, balance = BigDecimal("1000"))
+        val dest = accountEntity(id = 1L, accountNumber = "1000000000000000001", balance = BigDecimal("1000"))
         val accountSlot = slot<AccountEntity>()
 
         stubIdempotency(key)
-        every { accountRepository.findById(1L) } returns Optional.of(dest)
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns dest
         every { accountRepository.save(capture(accountSlot)) } answers { firstArg() }
         stubSaveTransaction(txResponse(key = key, type = TransactionType.MONEY_GIFT))
 
-        service.processMoneyGift(MoneyGiftRequest(key, 1L, BigDecimal("500"), null))
+        service.processMoneyGift(MoneyGiftRequest(key, "1000000000000000001", BigDecimal("500"), null))
 
         assertEquals(BigDecimal("1500"), accountSlot.captured.balance)
     }
@@ -530,11 +537,15 @@ class TransactionServiceImplTest {
         val resp1 = txResponse(id = 1L)
         val resp2 = txResponse(id = 2L)
 
-        every { transactionRepository.findAllBySourceAccountIdOrDestinationAccountId(1L, 1L) } returns listOf(tx1, tx2)
+        every {
+            transactionRepository.findAllBySourceAccountAccountNumberOrDestinationAccountAccountNumber(
+                "1000000000000000001", "1000000000000000001"
+            )
+        } returns listOf(tx1, tx2)
         every { transactionMapper.toResponse(tx1) } returns resp1
         every { transactionMapper.toResponse(tx2) } returns resp2
 
-        val result = service.getTransactionsByAccount(1L)
+        val result = service.getTransactionsByAccount("1000000000000000001")
 
         assertEquals(2, result.size)
     }

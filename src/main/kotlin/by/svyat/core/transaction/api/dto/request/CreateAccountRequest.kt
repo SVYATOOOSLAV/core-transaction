@@ -9,10 +9,6 @@ data class CreateAccountRequest(
     val userId: Long,
 
     @field:NotBlank
-    @field:Size(max = 20)
-    val accountNumber: String,
-
-    @field:NotBlank
     val accountType: String,
 
     @field:NotBlank

@@ -10,8 +10,8 @@ data class SbpTransferRequest(
     @field:NotNull
     val idempotencyKey: UUID,
 
-    @field:NotNull
-    val sourceAccountId: Long,
+    @field:NotBlank
+    val sourceAccountNumber: String,
 
     @field:NotBlank
     val recipientPhoneNumber: String,

@@ -9,5 +9,6 @@
     <include file="db/changelog/migrations/002-create-accounts.xml"/>
     <include file="db/changelog/migrations/003-create-cards.xml"/>
     <include file="db/changelog/migrations/004-create-transactions.xml"/>
+    <include file="db/changelog/migrations/005-create-account-sequences.xml"/>
 
 </databaseChangeLog>

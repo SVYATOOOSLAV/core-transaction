@@ -54,7 +54,7 @@ class TransactionController(
         return ResponseEntity.ok(transactionService.getTransaction(id))
     }
 
-    override fun getTransactionsByAccount(accountId: Long): ResponseEntity<List<TransactionResponse>> {
-        return ResponseEntity.ok(transactionService.getTransactionsByAccount(accountId))
+    override fun getTransactionsByAccount(accountNumber: String): ResponseEntity<List<TransactionResponse>> {
+        return ResponseEntity.ok(transactionService.getTransactionsByAccount(accountNumber))
     }
 }

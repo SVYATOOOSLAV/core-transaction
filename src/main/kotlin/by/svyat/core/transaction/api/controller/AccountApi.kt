@@ -38,7 +38,7 @@ interface AccountApi {
     @PostMapping
     fun createAccount(@Valid @RequestBody request: CreateAccountRequest): ResponseEntity<AccountResponse>
 
-    @Operation(summary = "Получить счёт по ID")
+    @Operation(summary = "Получить счёт по номеру")
     @ApiResponses(
         ApiResponse(responseCode = "200", description = "Счёт найден"),
         ApiResponse(
@@ -46,9 +46,9 @@ interface AccountApi {
             content = [Content(schema = Schema(implementation = ErrorResponse::class))]
         )
     )
-    @GetMapping("/{id}")
+    @GetMapping("/{accountNumber}")
     fun getAccount(
-        @Parameter(description = "ID счёта") @PathVariable id: Long
+        @Parameter(description = "Номер счёта") @PathVariable accountNumber: String
     ): ResponseEntity<AccountResponse>
 
     @Operation(summary = "Получить все счета пользователя")

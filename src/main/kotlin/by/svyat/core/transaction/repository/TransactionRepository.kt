@@ -8,8 +8,8 @@ interface TransactionRepository : JpaRepository<TransactionEntity, Long> {
 
     fun findByIdempotencyKey(idempotencyKey: UUID): TransactionEntity?
 
-    fun findAllBySourceAccountIdOrDestinationAccountId(
-        sourceAccountId: Long,
-        destinationAccountId: Long
+    fun findAllBySourceAccountAccountNumberOrDestinationAccountAccountNumber(
+        sourceAccountNumber: String,
+        destinationAccountNumber: String
     ): List<TransactionEntity>
 }

@@ -11,6 +11,7 @@ import by.svyat.core.transaction.entity.enums.AccountType
 import by.svyat.core.transaction.mapping.AccountMapper
 import by.svyat.core.transaction.repository.AccountRepository
 import by.svyat.core.transaction.repository.UserRepository
+import by.svyat.core.transaction.service.AccountNumberGenerator
 import by.svyat.core.transaction.service.AccountService
 
 private val log = KotlinLogging.logger {}
@@ -19,25 +20,22 @@ private val log = KotlinLogging.logger {}
 class AccountServiceImpl(
     private val accountRepository: AccountRepository,
     private val userRepository: UserRepository,
-    private val accountMapper: AccountMapper
+    private val accountMapper: AccountMapper,
+    private val accountNumberGenerator: AccountNumberGenerator
 ) : AccountService {
 
     @Transactional
     override fun createAccount(
         userId: Long,
-        accountNumber: String,
         accountType: AccountType,
         currency: String
     ): AccountResponse {
-        log.info { "Creating account: userId=$userId, type=$accountType, number=$accountNumber" }
+        log.info { "Creating account: userId=$userId, type=$accountType" }
 
         val user = userRepository.findById(userId)
             .orElseThrow { BusinessException(HttpStatus.NOT_FOUND, "User with id $userId not found") }
 
-        accountRepository.findByAccountNumber(accountNumber)?.let {
-            log.warn { "Duplicate account number: $accountNumber" }
-            throw BusinessException(HttpStatus.CONFLICT, "Account with number $accountNumber already exists")
-        }
+        val accountNumber = accountNumberGenerator.generate(accountType)
 
         val account = AccountEntity(
             user = user,
@@ -51,10 +49,10 @@ class AccountServiceImpl(
     }
 
     @Transactional(readOnly = true)
-    override fun getAccount(id: Long): AccountResponse {
-        log.debug { "Fetching account by id=$id" }
-        val account = accountRepository.findById(id)
-            .orElseThrow { BusinessException(HttpStatus.NOT_FOUND, "Account with id $id not found") }
+    override fun getAccount(accountNumber: String): AccountResponse {
+        log.debug { "Fetching account by accountNumber=$accountNumber" }
+        val account = accountRepository.findByAccountNumber(accountNumber)
+            ?: throw BusinessException(HttpStatus.NOT_FOUND, "Account with number $accountNumber not found")
         return accountMapper.toResponse(account)
     }
 

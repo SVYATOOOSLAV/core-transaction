@@ -34,17 +34,16 @@ class TestApiClient(
 
     fun createAccount(
         userId: Long,
-        accountNumber: String = "40817810000000000001",
         accountType: String = "CHECKING",
         currency: String = "RUB"
-    ): Long {
-        val request = TestDataFactory.accountRequest(userId, accountNumber, accountType, currency)
+    ): String {
+        val request = TestDataFactory.accountRequest(userId, accountType, currency)
         val result = postJson("/api/v1/accounts", request)
-        return extractId(result)
+        return extractAccountNumber(result)
     }
 
-    fun fundAccount(accountId: Long, amount: BigDecimal = BigDecimal("10000.00")): Long {
-        val request = TestDataFactory.moneyGiftRequest(accountId, amount, "Начальное пополнение")
+    fun fundAccount(accountNumber: String, amount: BigDecimal = BigDecimal("10000.00")): Long {
+        val request = TestDataFactory.moneyGiftRequest(accountNumber, amount, "Начальное пополнение")
         val result = postJson("/api/v1/transactions/gift", request)
         return extractId(result)
     }
@@ -53,18 +52,18 @@ class TestApiClient(
         phoneNumber: String = "+79991234567"
     ): TestAccounts {
         val userId = createUser(phoneNumber = phoneNumber)
-        val checkingId = createAccount(userId, "40817810000000000001", "CHECKING")
-        val savingsId = createAccount(userId, "40817810000000000002", "SAVINGS")
-        return TestAccounts(userId, checkingId, savingsId)
+        val checkingNumber = createAccount(userId, "CHECKING")
+        val savingsNumber = createAccount(userId, "SAVINGS")
+        return TestAccounts(userId, checkingNumber, savingsNumber)
     }
 
     fun createCard(
-        accountId: Long,
+        accountNumber: String,
         cardNumber: String,
         expiryDate: LocalDate = LocalDate.now().plusYears(3)
     ): Long {
-        val account = accountRepository.findById(accountId)
-            .orElseThrow { IllegalArgumentException("Account $accountId not found") }
+        val account = accountRepository.findByAccountNumber(accountNumber)
+            ?: throw IllegalArgumentException("Account $accountNumber not found")
         val card = cardRepository.save(
             CardEntity(account = account, cardNumber = cardNumber, expiryDate = expiryDate)
         )
@@ -82,9 +81,13 @@ class TestApiClient(
         return objectMapper.readTree(result.response.contentAsString)["id"].asLong()
     }
 
+    private fun extractAccountNumber(result: MvcResult): String {
+        return objectMapper.readTree(result.response.contentAsString)["accountNumber"].asText()
+    }
+
     data class TestAccounts(
         val userId: Long,
-        val checkingAccountId: Long,
-        val savingsAccountId: Long
+        val checkingAccountNumber: String,
+        val savingsAccountNumber: String
     )
 }

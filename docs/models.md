@@ -22,10 +22,10 @@
 |---------------|------------------|--------------------------------|--------------------|
 | id            | Long             | PK, auto-generated             | ID счета           |
 | user          | UserEntity       | ManyToOne, NOT NULL, LAZY      | Владелец           |
-| accountNumber | String           | NOT NULL, UNIQUE, max 20       | Номер счета        |
+| accountNumber | String           | NOT NULL, UNIQUE, max 20       | Номер счета (авто-генерация) |
 | accountType   | AccountType      | NOT NULL, ENUM                 | Тип счета          |
 | currency      | String           | NOT NULL, max 3, default "RUB" | Валюта             |
-| balance       | BigDecimal       | NOT NULL, NUMERIC(19,4)        | Баланс             |
+| balance       | BigDecimal       | NOT NULL, NUMERIC(19,4), CHECK >= 0 | Баланс        |
 | isActive      | Boolean          | NOT NULL, default true         | Активен ли         |
 | createdAt     | OffsetDateTime   | NOT NULL, immutable            | Дата создания      |
 | updatedAt     | OffsetDateTime   | NOT NULL                       | Дата обновления    |
@@ -61,29 +61,75 @@
 
 ---
 
+## Компоненты
+
+### AccountNumberGenerator
+
+Генерирует уникальные номера счетов через PostgreSQL sequences.
+
+- **Формат**: `<префикс><19 цифр>` = 20 символов
+- **Префиксы**: CHECKING→"1", SAVINGS→"2", DEPOSIT→"3", BROKERAGE→"4"
+- **Sequences**: `seq_account_checking`, `seq_account_savings`, `seq_account_deposit`, `seq_account_brokerage`
+- **Уникальность** гарантирована sequence (UNIQUE constraint на `accountNumber` создает B-tree индекс)
+
+Пример: `"1000000000000000001"` (первый CHECKING), `"2000000000000000001"` (первый SAVINGS)
+
+---
+
+## DTO
+
+### CreateAccountRequest
+
+| Поле        | Тип    | Обязательное | Валидация       | Описание                              |
+|-------------|--------|:------------:|-----------------|---------------------------------------|
+| userId      | Long   | да           | NotNull         | ID владельца счета                    |
+| accountType | String | да           | NotBlank        | Тип счета: CHECKING, SAVINGS, DEPOSIT, BROKERAGE |
+| currency    | String | нет          | NotBlank, max 3 | Валюта (по умолчанию `"RUB"`)         |
+
+> `accountNumber` не передаётся — генерируется автоматически через `AccountNumberGenerator`.
+
+### TransactionResponse
+
+| Поле                     | Тип              | Описание                              |
+|--------------------------|------------------|---------------------------------------|
+| id                       | Long             | ID транзакции                         |
+| idempotencyKey           | UUID             | Ключ идемпотентности                  |
+| transactionType          | String           | Тип транзакции (enum name)            |
+| status                   | String           | Статус: PENDING, COMPLETED, FAILED, CANCELLED |
+| sourceAccountNumber      | String?          | Номер счета-источника (null для кредитных операций) |
+| destinationAccountNumber | String?          | Номер счета-назначения                |
+| amount                   | BigDecimal       | Сумма                                 |
+| currency                 | String           | Валюта                                |
+| description              | String?          | Описание                              |
+| errorMessage             | String?          | Сообщение об ошибке (при FAILED)      |
+| createdAt                | OffsetDateTime   | Дата создания                         |
+| completedAt              | OffsetDateTime?  | Дата завершения                       |
+
+---
+
 ## Перечисления (Enums)
 
 ### AccountType
 
-| Значение   | Описание            |
-|------------|---------------------|
-| CHECKING   | Расчетный счет      |
-| SAVINGS    | Накопительный счет  |
-| DEPOSIT    | Депозитный счет     |
-| BROKERAGE  | Брокерский счет     |
+| Значение   | Префикс | Описание            |
+|------------|---------|---------------------|
+| CHECKING   | 1       | Расчетный счет      |
+| SAVINGS    | 2       | Накопительный счет  |
+| DEPOSIT    | 3       | Депозитный счет     |
+| BROKERAGE  | 4       | Брокерский счет     |
 
 ### TransactionType
 
-| Значение           | Описание                       |
-|--------------------|--------------------------------|
-| TRANSFER_SAVINGS   | Перевод на накопительный счет  |
-| TRANSFER_DEPOSIT   | Перевод на депозитный счет     |
-| TRANSFER_BROKERAGE | Перевод на брокерский счет     |
-| INTERBANK_TRANSFER | Межбанковский перевод          |
-| SBP_TRANSFER       | Перевод через СБП              |
-| MONEY_GIFT         | Денежный подарок               |
-| COMPENSATION       | Компенсация                    |
-| CREDIT_PAYMENT     | Кредитный платеж               |
+| Значение           | Тип операции | Описание                       |
+|--------------------|-------------|--------------------------------|
+| TRANSFER_SAVINGS   | debit-credit | Перевод на накопительный счет  |
+| TRANSFER_DEPOSIT   | debit-credit | Перевод на депозитный счет     |
+| TRANSFER_BROKERAGE | debit-credit | Перевод на брокерский счет     |
+| INTERBANK_TRANSFER | debit-credit | Межбанковский перевод          |
+| SBP_TRANSFER       | debit-credit | Перевод через СБП              |
+| MONEY_GIFT         | credit-only  | Денежный подарок               |
+| COMPENSATION       | credit-only  | Компенсация                    |
+| CREDIT_PAYMENT     | debit-credit | Кредитный платеж               |
 
 ### TransactionStatus
 
@@ -115,7 +161,7 @@
   "timestamp": "2026-03-18T12:00:00+03:00",
   "status": 404,
   "error": "Not Found",
-  "message": "Account with id 99 not found",
-  "path": "/api/v1/accounts/99"
+  "message": "Account with number 9999999999999999999 not found",
+  "path": "/api/v1/accounts/9999999999999999999"
 }
 ```

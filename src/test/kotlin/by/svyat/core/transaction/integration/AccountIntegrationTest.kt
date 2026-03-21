@@ -35,7 +35,7 @@ class AccountIntegrationTest : IntegrationTestBase() {
     inner class CreateAccount {
 
         @Test
-        fun `full lifecycle - create and get by id and user`() {
+        fun `full lifecycle - create and get by accountNumber and user`() {
             val request = TestDataFactory.accountRequest(userId)
 
             val createResult = mockMvc.post("/api/v1/accounts") {
@@ -43,18 +43,18 @@ class AccountIntegrationTest : IntegrationTestBase() {
                 content = objectMapper.writeValueAsString(request)
             }.andExpect {
                 status { isCreated() }
-                jsonPath("$.accountNumber") { value("40817810000000000001") }
                 jsonPath("$.accountType") { value("CHECKING") }
                 jsonPath("$.currency") { value("RUB") }
                 jsonPath("$.balance") { value(0) }
                 jsonPath("$.isActive") { value(true) }
+                jsonPath("$.accountNumber") { exists() }
             }.andReturn()
 
-            val accountId = objectMapper.readTree(createResult.response.contentAsString)["id"].asLong()
+            val accountNumber = objectMapper.readTree(createResult.response.contentAsString)["accountNumber"].asText()
 
-            mockMvc.get("/api/v1/accounts/$accountId").andExpect {
+            mockMvc.get("/api/v1/accounts/$accountNumber").andExpect {
                 status { isOk() }
-                jsonPath("$.id") { value(accountId) }
+                jsonPath("$.accountNumber") { value(accountNumber) }
             }
 
             mockMvc.get("/api/v1/accounts/user/$userId").andExpect {
@@ -64,15 +64,16 @@ class AccountIntegrationTest : IntegrationTestBase() {
         }
 
         @Test
-        fun `duplicate number returns 409`() {
-            api.createAccount(userId, accountNumber = "40817810000000000099")
+        fun `generated account numbers have correct prefix`() {
+            val checkingNumber = api.createAccount(userId, "CHECKING")
+            val savingsNumber = api.createAccount(userId, "SAVINGS")
+            val depositNumber = api.createAccount(userId, "DEPOSIT")
+            val brokerageNumber = api.createAccount(userId, "BROKERAGE")
 
-            mockMvc.post("/api/v1/accounts") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(
-                    TestDataFactory.accountRequest(userId, accountNumber = "40817810000000000099")
-                )
-            }.andExpect { status { isConflict() } }
+            assert(checkingNumber.startsWith("1")) { "CHECKING should start with 1, got $checkingNumber" }
+            assert(savingsNumber.startsWith("2")) { "SAVINGS should start with 2, got $savingsNumber" }
+            assert(depositNumber.startsWith("3")) { "DEPOSIT should start with 3, got $depositNumber" }
+            assert(brokerageNumber.startsWith("4")) { "BROKERAGE should start with 4, got $brokerageNumber" }
         }
 
         @Test
@@ -97,8 +98,8 @@ class AccountIntegrationTest : IntegrationTestBase() {
 
         @Test
         fun `multiple account types for same user`() {
-            listOf("CHECKING", "SAVINGS", "DEPOSIT", "BROKERAGE").forEachIndexed { i, type ->
-                api.createAccount(userId, accountNumber = "4081781000000000000${i + 1}", accountType = type)
+            listOf("CHECKING", "SAVINGS", "DEPOSIT", "BROKERAGE").forEach { type ->
+                api.createAccount(userId, accountType = type)
             }
 
             mockMvc.get("/api/v1/accounts/user/$userId").andExpect {
@@ -113,7 +114,7 @@ class AccountIntegrationTest : IntegrationTestBase() {
 
         @Test
         fun `not found returns 404`() {
-            mockMvc.get("/api/v1/accounts/999999").andExpect {
+            mockMvc.get("/api/v1/accounts/9999999999999999999").andExpect {
                 status { isNotFound() }
             }
         }

@@ -18,5 +18,5 @@ interface TransactionService {
     fun processCompensation(request: CompensationRequest): TransactionResponse
     fun processCreditPayment(request: CreditPaymentRequest): TransactionResponse
     fun getTransaction(id: Long): TransactionResponse
-    fun getTransactionsByAccount(accountId: Long): List<TransactionResponse>
+    fun getTransactionsByAccount(accountNumber: String): List<TransactionResponse>
 }

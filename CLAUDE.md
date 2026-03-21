@@ -46,11 +46,17 @@ Spring Boot 3.5 / Kotlin 1.9.25 microservice for banking transaction processing.
 
 ## Key Design Decisions
 
+**Account number generation**: Account numbers are auto-generated via PostgreSQL sequences with type-based prefixes: CHECKING→"1", SAVINGS→"2", DEPOSIT→"3", BROKERAGE→"4". Format: prefix + 19 zero-padded digits = 20 chars. `AccountNumberGenerator` component uses `JdbcTemplate` to call `nextval()` on per-type sequences (`seq_account_checking`, etc.).
+
+**Account number as external identifier**: All API endpoints use `accountNumber` (String) instead of internal database `id` (Long) for account references. This applies to transfer requests, transaction responses, and account lookup (`GET /api/v1/accounts/{accountNumber}`).
+
 **Idempotency**: All transaction write endpoints require a `idempotencyKey` (UUID). The `transactions` table has a unique constraint on this column.
 
-**Pessimistic locking**: `AccountRepository` uses `@Lock(LockModeType.PESSIMISTIC_WRITE)` when loading accounts for transfer operations to prevent concurrent balance corruption.
+**Pessimistic locking with deadlock prevention**: Both source and destination accounts are locked with `@Lock(LockModeType.PESSIMISTIC_WRITE)` via `findByAccountNumberForUpdate()`. Accounts are locked in consistent alphabetical order by `accountNumber` to prevent deadlocks. Credit-only operations (MoneyGift, Compensation) also lock the destination account.
 
-**Transaction types**: `TRANSFER_SAVINGS`, `TRANSFER_DEPOSIT`, `TRANSFER_BROKERAGE` (internal), `INTERBANK_TRANSFER` (card-to-card), `SBP_TRANSFER` (phone-based P2P), `MONEY_GIFT`, `COMPENSATION`, `CREDIT_PAYMENT` (credit-only — no debit).
+**Transaction types**: `TRANSFER_SAVINGS`, `TRANSFER_DEPOSIT`, `TRANSFER_BROKERAGE` (internal), `INTERBANK_TRANSFER` (card-to-card), `SBP_TRANSFER` (phone-based P2P), `MONEY_GIFT`, `COMPENSATION` (credit-only — no debit), `CREDIT_PAYMENT` (debit-credit — debits source, credits destination).
+
+**Metrics**: Business-level counters (`transactions.total` tagged by type/status) and account balance gauge (`accounts.balance`). HTTP-level timing is provided by Spring Boot Actuator (`http.server.requests`).
 
 **Error handling**: Throw `BusinessException(httpStatus, message)` from service layer; `GlobalExceptionHandler` converts it to a structured `ErrorResponse` with timestamp and path.
 
@@ -60,7 +66,7 @@ Spring Boot 3.5 / Kotlin 1.9.25 microservice for banking transaction processing.
 
 ## Tech Stack
 
-- Kotlin 1.9.25, Java 17, Spring Boot 3.5.12
+- Kotlin 1.9.25, Java 21, Spring Boot 3.5.12
 - Spring Data JPA (Hibernate), Liquibase, PostgreSQL 16
 - Jetty (not Tomcat)
 - Micrometer + Prometheus for metrics
@@ -78,7 +84,7 @@ Spring Boot 3.5 / Kotlin 1.9.25 microservice for banking transaction processing.
 **Integration tests**:
 - Base class: `IntegrationTestBase` — starts PostgreSQL container, configures `@SpringBootTest`, cleans DB via `@BeforeEach` in FK order (transactions → cards → accounts → users)
 - `TestDataFactory` — factory object with default-valued methods for all request DTOs
-- `TestApiClient` — Spring `@Component` wrapping MockMvc for setup operations (create user/account/card, fund account)
+- `TestApiClient` — Spring `@Component` wrapping MockMvc for setup operations (create user/account/card, fund account). Returns `accountNumber` (String) from `createAccount()`.
 - Tests use `@Nested` inner classes grouped by business operation (e.g., `TransferToSavings`, `SbpTransfer`, `Compensation`)
 
 **Important**: DB cleanup order must respect FK constraints: transactions → cards → accounts → users. `@DirtiesContext` does NOT clean the database — it only recreates Spring context.
