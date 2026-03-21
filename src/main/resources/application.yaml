@@ -1,0 +1,48 @@
+server:
+  port: 8090
+  shutdown: graceful
+
+spring:
+  application:
+    name: core-transaction
+  main:
+    banner-mode: off
+  datasource:
+    url: jdbc:postgresql://localhost:5434/transaction_db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: core-transaction-pool
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 300000        # 5 минут — время простоя соединения до его закрытия
+      max-lifetime: 1200000       # 20 минут — максимальное время жизни соединения в пуле
+      connection-timeout: 10000   # 10 секунд — ожидание получения соединения из пула
+      keepalive-time: 60000       # 1 минута — проверка живых idle-соединений
+      leak-detection-threshold: 30000  # 30 секунд — порог обнаружения утечки соединений
+      validation-timeout: 5000   # 5 секунд — таймаут валидации соединения
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: true
+    properties:
+      hibernate:
+        format-sql: true
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: transaction-service
