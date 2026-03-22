@@ -24,7 +24,11 @@ import by.svyat.core.transaction.repository.AccountRepository
 import by.svyat.core.transaction.repository.CardRepository
 import by.svyat.core.transaction.repository.TransactionRepository
 import by.svyat.core.transaction.repository.UserRepository
+import by.svyat.core.transaction.outbox.OutboxProducer
+import by.svyat.core.transaction.outbox.enums.OutboxAggregateType
 import by.svyat.core.transaction.service.TransactionService
+import by.svyat.core.transaction.api.dto.outbox.TransactionOutboxPayload
+import by.svyat.core.transaction.entity.enums.OutboxEventType
 import io.micrometer.core.instrument.Tag
 import java.math.BigDecimal
 import java.time.OffsetDateTime
@@ -39,7 +43,8 @@ class TransactionServiceImpl(
     private val cardRepository: CardRepository,
     private val userRepository: UserRepository,
     private val transactionMapper: TransactionMapper,
-    private val meterRegistry: MeterRegistry
+    private val meterRegistry: MeterRegistry,
+    private val outboxProducer: OutboxProducer
 ) : TransactionService {
 
     private fun txCounter(type: TransactionType, status: String): Counter =
@@ -257,6 +262,23 @@ class TransactionServiceImpl(
         val saved = transactionRepository.save(transaction)
 
         txCounter(type, "COMPLETED").increment()
+
+        outboxProducer.publish(
+            aggregateType = OutboxAggregateType.TRANSACTION,
+            aggregateId = saved.id.toString(),
+            eventType = OutboxEventType.TRANSFER_COMPLETED.name,
+            partitionKey = destAccount.accountNumber,
+            payload = TransactionOutboxPayload(
+                transactionId = saved.id,
+                type = type,
+                sourceAccountNumber = null,
+                destinationAccountNumber = destAccount.accountNumber,
+                amount = amount,
+                currency = destAccount.currency,
+                status = TransactionStatus.COMPLETED
+            )
+        )
+
         log.info { "Transaction completed: id=${saved.id}, type=$type, amount=$amount" }
 
         return transactionMapper.toResponse(saved)
@@ -296,6 +318,23 @@ class TransactionServiceImpl(
                 Tag.of("accountNumber", source.accountNumber)
             ), source.balance.toDouble()
         )
+
+        outboxProducer.publish(
+            aggregateType = OutboxAggregateType.TRANSACTION,
+            aggregateId = saved.id.toString(),
+            eventType = OutboxEventType.TRANSFER_COMPLETED.name,
+            partitionKey = source.accountNumber,
+            payload = TransactionOutboxPayload(
+                transactionId = saved.id,
+                type = type,
+                sourceAccountNumber = source.accountNumber,
+                destinationAccountNumber = destination.accountNumber,
+                amount = amount,
+                currency = source.currency,
+                status = TransactionStatus.COMPLETED
+            )
+        )
+
         log.info { "Transaction completed: id=${saved.id}, type=$type, src=${source.accountNumber}, dst=${destination.accountNumber}, amount=$amount" }
 
         return transactionMapper.toResponse(saved)

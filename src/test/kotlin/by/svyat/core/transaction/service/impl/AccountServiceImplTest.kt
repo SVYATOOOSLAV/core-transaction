@@ -15,7 +15,7 @@ import by.svyat.core.transaction.entity.enums.AccountType
 import by.svyat.core.transaction.mapping.AccountMapper
 import by.svyat.core.transaction.repository.AccountRepository
 import by.svyat.core.transaction.repository.UserRepository
-import by.svyat.core.transaction.service.AccountNumberGenerator
+import by.svyat.core.transaction.component.AccountNumberGenerator
 import java.math.BigDecimal
 import java.time.OffsetDateTime
 import java.util.*

@@ -35,6 +35,16 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.xml
 
 
+outbox:
+  partition-count: 8
+  poll-interval-ms: 1000
+  batch-size: 50
+  consumer-group: core-transaction
+  lock-ttl-seconds: 30
+  cleanup-retention-days: 7
+  producer-enabled: true
+  consumer-enabled: true
+
 management:
   endpoints:
     web:

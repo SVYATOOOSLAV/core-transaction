@@ -24,6 +24,7 @@ import by.svyat.core.transaction.repository.AccountRepository
 import by.svyat.core.transaction.repository.CardRepository
 import by.svyat.core.transaction.repository.TransactionRepository
 import by.svyat.core.transaction.repository.UserRepository
+import by.svyat.core.transaction.outbox.OutboxProducer
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -37,9 +38,10 @@ class TransactionServiceImplTest {
     private val userRepository: UserRepository = mockk()
     private val transactionMapper: TransactionMapper = mockk()
     private val meterRegistry = SimpleMeterRegistry()
+    private val outboxProducer: OutboxProducer = mockk(relaxed = true)
 
     private val service = TransactionServiceImpl(
-        transactionRepository, accountRepository, cardRepository, userRepository, transactionMapper, meterRegistry
+        transactionRepository, accountRepository, cardRepository, userRepository, transactionMapper, meterRegistry, outboxProducer
     )
 
     private val now = OffsetDateTime.now()

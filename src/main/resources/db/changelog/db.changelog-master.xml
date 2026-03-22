@@ -10,5 +10,8 @@
     <include file="db/changelog/migrations/003-create-cards.xml"/>
     <include file="db/changelog/migrations/004-create-transactions.xml"/>
     <include file="db/changelog/migrations/005-create-account-sequences.xml"/>
+    <include file="db/changelog/migrations/006-create-outbox-messages.xml"/>
+    <include file="db/changelog/migrations/007-create-outbox-consumer-offsets.xml"/>
+    <include file="db/changelog/migrations/008-create-outbox-partition-locks.xml"/>
 
 </databaseChangeLog>

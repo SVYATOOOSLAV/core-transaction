@@ -2,7 +2,7 @@ package by.svyat.core.transaction.integration
 
 import by.svyat.core.transaction.IntegrationTestBase
 import by.svyat.core.transaction.entity.enums.AccountType
-import by.svyat.core.transaction.service.AccountNumberGenerator
+import by.svyat.core.transaction.component.AccountNumberGenerator
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test

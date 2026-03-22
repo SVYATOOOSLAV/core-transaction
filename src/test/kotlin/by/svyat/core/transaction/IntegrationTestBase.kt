@@ -8,6 +8,9 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import by.svyat.core.transaction.repository.AccountRepository
 import by.svyat.core.transaction.repository.CardRepository
+import by.svyat.core.transaction.repository.OutboxConsumerOffsetRepository
+import by.svyat.core.transaction.repository.OutboxMessageRepository
+import by.svyat.core.transaction.repository.OutboxPartitionLockRepository
 import by.svyat.core.transaction.repository.TransactionRepository
 import by.svyat.core.transaction.repository.UserRepository
 import org.testcontainers.containers.PostgreSQLContainer
@@ -30,8 +33,20 @@ abstract class IntegrationTestBase {
     @Autowired
     private lateinit var usrRepository: UserRepository
 
+    @Autowired
+    private lateinit var outboxMessageRepository: OutboxMessageRepository
+
+    @Autowired
+    private lateinit var outboxConsumerOffsetRepository: OutboxConsumerOffsetRepository
+
+    @Autowired
+    private lateinit var outboxPartitionLockRepository: OutboxPartitionLockRepository
+
     @BeforeEach
     fun cleanDatabase() {
+        outboxMessageRepository.deleteAll()
+        outboxConsumerOffsetRepository.deleteAll()
+        outboxPartitionLockRepository.deleteAll()
         txRepository.deleteAll()
         cardRepository.deleteAll()
         accRepository.deleteAll()

@@ -1,4 +1,4 @@
-package by.svyat.core.transaction.service
+package by.svyat.core.transaction.component
 
 import by.svyat.core.transaction.entity.enums.AccountType
 import org.springframework.jdbc.core.JdbcTemplate

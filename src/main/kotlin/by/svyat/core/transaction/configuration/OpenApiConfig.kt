@@ -1,4 +1,4 @@
-package by.svyat.core.transaction.config
+package by.svyat.core.transaction.configuration
 
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Contact
