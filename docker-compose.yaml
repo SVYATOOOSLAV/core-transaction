@@ -4,8 +4,8 @@ services:
     image: postgres:16
     environment:
       POSTGRES_DB: transaction_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     volumes:
       - transaction_pgdata:/var/lib/postgresql/data
     ports:

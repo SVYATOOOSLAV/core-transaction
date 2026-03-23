@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import org.springframework.transaction.annotation.Transactional
 import java.time.OffsetDateTime
 
 interface OutboxMessageRepository : JpaRepository<OutboxMessageEntity, Long> {
@@ -24,6 +25,7 @@ interface OutboxMessageRepository : JpaRepository<OutboxMessageEntity, Long> {
         pageable: Pageable
     ): List<OutboxMessageEntity>
 
+    @Transactional
     @Modifying
     @Query(
         "DELETE FROM outbox_messages WHERE created_at < :before",

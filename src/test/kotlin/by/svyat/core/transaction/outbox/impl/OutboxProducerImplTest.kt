@@ -6,6 +6,7 @@ import by.svyat.core.transaction.entity.OutboxMessageEntity
 import by.svyat.core.transaction.repository.OutboxMessageRepository
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -21,8 +22,9 @@ class OutboxProducerImplTest {
     private val outboxMessageRepository: OutboxMessageRepository = mockk()
     private val objectMapper: ObjectMapper = jacksonObjectMapper()
     private val outboxProperties = OutboxProperties(partitionCount = 8)
+    private val meterRegistry = SimpleMeterRegistry()
 
-    private val producer = OutboxProducerImpl(outboxMessageRepository, objectMapper, outboxProperties)
+    private val producer = OutboxProducerImpl(outboxMessageRepository, objectMapper, outboxProperties, meterRegistry)
 
     @Nested
     inner class Publish {
@@ -177,7 +179,7 @@ class OutboxProducerImplTest {
         @Test
         fun `respects custom partition count`() {
             val customProperties = OutboxProperties(partitionCount = 4)
-            val customProducer = OutboxProducerImpl(outboxMessageRepository, objectMapper, customProperties)
+            val customProducer = OutboxProducerImpl(outboxMessageRepository, objectMapper, customProperties, meterRegistry)
 
             val messageSlot = slot<OutboxMessageEntity>()
             every { outboxMessageRepository.save(capture(messageSlot)) } answers { firstArg() }
@@ -211,6 +213,102 @@ class OutboxProducerImplTest {
 
             val createdAt = messageSlot.captured.createdAt
             assertTrue(createdAt.isBefore(java.time.OffsetDateTime.now().plusSeconds(1))) { "createdAt should be close to now" }
+        }
+    }
+
+    @Nested
+    inner class Metrics {
+
+        @Test
+        fun `increments published counter on successful publish`() {
+            every { outboxMessageRepository.save(any()) } answers { firstArg() }
+
+            producer.publish(
+                aggregateType = OutboxAggregateType.TRANSACTION,
+                aggregateId = "1",
+                eventType = "TRANSFER_COMPLETED",
+                partitionKey = "key",
+                payload = "test"
+            )
+
+            val counter = meterRegistry.find("outbox.producer.published")
+                .tag("aggregateType", "TRANSACTION")
+                .tag("eventType", "TRANSFER_COMPLETED")
+                .counter()
+
+            assertEquals(1.0, counter?.count())
+        }
+
+        @Test
+        fun `records publish duration`() {
+            every { outboxMessageRepository.save(any()) } answers { firstArg() }
+
+            producer.publish(
+                aggregateType = OutboxAggregateType.TRANSACTION,
+                aggregateId = "1",
+                eventType = "TRANSFER_COMPLETED",
+                partitionKey = "key",
+                payload = "test"
+            )
+
+            val timer = meterRegistry.find("outbox.producer.publish.duration")
+                .tag("aggregateType", "TRANSACTION")
+                .timer()
+
+            assertEquals(1L, timer?.count())
+        }
+
+        @Test
+        fun `counter tags match aggregateType and eventType for different events`() {
+            every { outboxMessageRepository.save(any()) } answers { firstArg() }
+
+            producer.publish(
+                aggregateType = OutboxAggregateType.TRANSACTION,
+                aggregateId = "1",
+                eventType = "TRANSFER_COMPLETED",
+                partitionKey = "key1",
+                payload = "test"
+            )
+            producer.publish(
+                aggregateType = OutboxAggregateType.ACCOUNT,
+                aggregateId = "2",
+                eventType = "ACCOUNT_CREATED",
+                partitionKey = "key2",
+                payload = "test"
+            )
+
+            val txCounter = meterRegistry.find("outbox.producer.published")
+                .tag("aggregateType", "TRANSACTION")
+                .tag("eventType", "TRANSFER_COMPLETED")
+                .counter()
+            val accCounter = meterRegistry.find("outbox.producer.published")
+                .tag("aggregateType", "ACCOUNT")
+                .tag("eventType", "ACCOUNT_CREATED")
+                .counter()
+
+            assertEquals(1.0, txCounter?.count())
+            assertEquals(1.0, accCounter?.count())
+        }
+
+        @Test
+        fun `does not increment metrics when producer is disabled`() {
+            val disabledProperties = OutboxProperties(partitionCount = 8, producerEnabled = false)
+            val disabledRegistry = SimpleMeterRegistry()
+            val disabledProducer = OutboxProducerImpl(outboxMessageRepository, objectMapper, disabledProperties, disabledRegistry)
+
+            disabledProducer.publish(
+                aggregateType = OutboxAggregateType.TRANSACTION,
+                aggregateId = "1",
+                eventType = "TRANSFER_COMPLETED",
+                partitionKey = "key",
+                payload = "test"
+            )
+
+            val counter = disabledRegistry.find("outbox.producer.published").counter()
+            val timer = disabledRegistry.find("outbox.producer.publish.duration").timer()
+
+            assertTrue(counter == null || counter.count() == 0.0)
+            assertTrue(timer == null || timer.count() == 0L)
         }
     }
 }

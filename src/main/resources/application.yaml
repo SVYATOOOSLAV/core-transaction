@@ -9,8 +9,8 @@ spring:
     banner-mode: off
   datasource:
     url: jdbc:postgresql://localhost:5434/transaction_db
-    username: postgres
-    password: postgres
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: core-transaction-pool
@@ -30,6 +30,11 @@ spring:
     properties:
       hibernate:
         format-sql: true
+  kafka:
+    bootstrap-servers: localhost:9092,localhost:9093,localhost:9094
+    producer:
+      acks: all
+      retries: 3
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.xml
@@ -55,4 +60,4 @@ management:
       show-details: always
   metrics:
     tags:
-      application: transaction-service
+      application: сore-transaction

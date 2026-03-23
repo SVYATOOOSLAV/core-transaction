@@ -147,7 +147,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
 
             val messages = outboxMessageRepository.findAll()
             // last message is the transfer (first is fundAccount's MONEY_GIFT)
-            val transferMessage = messages.last()
+            val transferMessage = messages.sortedBy { it.id }.last()
 
             assertEquals(OutboxAggregateType.TRANSACTION.name, transferMessage.aggregateType)
             assertEquals(OutboxEventType.TRANSFER_COMPLETED.name, transferMessage.eventType)
@@ -167,7 +167,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 status { isCreated() }
             }
 
-            val transferMessage = outboxMessageRepository.findAll().last()
+            val transferMessage = outboxMessageRepository.findAll().sortedBy { it.id }.last()
 
             assertEquals(checkingAccountNumber, transferMessage.partitionKey)
         }
@@ -186,7 +186,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 status { isCreated() }
             }
 
-            val compensationMessage = outboxMessageRepository.findAll().last()
+            val compensationMessage = outboxMessageRepository.findAll().sortedBy { it.id }.last()
 
             assertEquals(checkingAccountNumber, compensationMessage.partitionKey)
         }
@@ -205,7 +205,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 status { isCreated() }
             }
 
-            val transferMessage = outboxMessageRepository.findAll().last()
+            val transferMessage = outboxMessageRepository.findAll().sortedBy { it.id }.last()
             val payload = objectMapper.readTree(transferMessage.payload)
 
             assertTrue(payload.has("transactionId"))
@@ -231,7 +231,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 status { isCreated() }
             }
 
-            val giftMessage = outboxMessageRepository.findAll().last()
+            val giftMessage = outboxMessageRepository.findAll().sortedBy { it.id }.last()
             val payload = objectMapper.readTree(giftMessage.payload)
 
             assertTrue(payload["sourceAccountNumber"].isNull)
@@ -256,7 +256,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
             val responseJson = objectMapper.readTree(result.response.contentAsString)
             val transactionId = responseJson["id"].asText()
 
-            val transferMessage = outboxMessageRepository.findAll().last()
+            val transferMessage = outboxMessageRepository.findAll().sortedBy { it.id }.last()
             assertEquals(transactionId, transferMessage.aggregateId)
         }
     }
@@ -278,7 +278,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 status { isCreated() }
             }
 
-            val transferMessage = outboxMessageRepository.findAll().last()
+            val transferMessage = outboxMessageRepository.findAll().sortedBy { it.id }.last()
             val expectedPartition = abs(checkingAccountNumber.hashCode()) % 8
 
             assertEquals(expectedPartition, transferMessage.partitionNum)

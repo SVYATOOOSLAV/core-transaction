@@ -5,10 +5,12 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import org.springframework.transaction.annotation.Transactional
 import java.time.OffsetDateTime
 
 interface OutboxPartitionLockRepository : JpaRepository<OutboxPartitionLockEntity, Long> {
 
+    @Transactional
     @Modifying
     @Query(
         """
@@ -28,6 +30,7 @@ interface OutboxPartitionLockRepository : JpaRepository<OutboxPartitionLockEntit
         @Param("expiresAt") expiresAt: OffsetDateTime
     ): Int
 
+    @Transactional
     @Modifying
     @Query(
         """
@@ -44,6 +47,7 @@ interface OutboxPartitionLockRepository : JpaRepository<OutboxPartitionLockEntit
         @Param("lockedBy") lockedBy: String
     )
 
+    @Transactional
     @Modifying
     @Query("DELETE FROM outbox_partition_locks WHERE expires_at < NOW()", nativeQuery = true)
     fun deleteExpiredLocks(): Int

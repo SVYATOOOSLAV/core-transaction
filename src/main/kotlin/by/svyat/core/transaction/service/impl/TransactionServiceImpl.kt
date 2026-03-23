@@ -259,17 +259,17 @@ class TransactionServiceImpl(
             description = description,
             completedAt = OffsetDateTime.now()
         )
-        val saved = transactionRepository.save(transaction)
+        val savedTransaction = transactionRepository.save(transaction)
 
         txCounter(type, "COMPLETED").increment()
 
         outboxProducer.publish(
             aggregateType = OutboxAggregateType.TRANSACTION,
-            aggregateId = saved.id.toString(),
+            aggregateId = savedTransaction.id.toString(),
             eventType = OutboxEventType.TRANSFER_COMPLETED.name,
             partitionKey = destAccount.accountNumber,
             payload = TransactionOutboxPayload(
-                transactionId = saved.id,
+                transactionId = savedTransaction.id,
                 type = type,
                 sourceAccountNumber = null,
                 destinationAccountNumber = destAccount.accountNumber,
@@ -279,9 +279,9 @@ class TransactionServiceImpl(
             )
         )
 
-        log.info { "Transaction completed: id=${saved.id}, type=$type, amount=$amount" }
+        log.info { "Transaction completed: transactionId=${savedTransaction.id}, type=$type, amount=$amount" }
 
-        return transactionMapper.toResponse(saved)
+        return transactionMapper.toResponse(savedTransaction)
     }
 
     private fun executeDebitCredit(
