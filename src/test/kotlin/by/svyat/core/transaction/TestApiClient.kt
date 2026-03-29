@@ -42,19 +42,24 @@ class TestApiClient(
         return extractAccountNumber(result)
     }
 
+    fun createAccountWithCard(
+        userId: Long,
+        accountType: String = "CHECKING",
+        currency: String = "RUB"
+    ): AccountWithCard {
+        val request = TestDataFactory.accountRequest(userId, accountType, currency)
+        val result = postJson("/api/v1/accounts", request)
+        val tree = objectMapper.readTree(result.response.contentAsString)
+        return AccountWithCard(
+            accountNumber = tree["accountNumber"].asText(),
+            cardNumber = tree["cardNumber"]?.asText()
+        )
+    }
+
     fun fundAccount(accountNumber: String, amount: BigDecimal = BigDecimal("10000.00")): Long {
         val request = TestDataFactory.moneyGiftRequest(accountNumber, amount, "Начальное пополнение")
         val result = postJson("/api/v1/transactions/gift", request)
         return extractId(result)
-    }
-
-    fun createUserWithCheckingAndSavings(
-        phoneNumber: String = "+79991234567"
-    ): TestAccounts {
-        val userId = createUser(phoneNumber = phoneNumber)
-        val checkingNumber = createAccount(userId, "CHECKING")
-        val savingsNumber = createAccount(userId, "SAVINGS")
-        return TestAccounts(userId, checkingNumber, savingsNumber)
     }
 
     fun createCard(
@@ -68,6 +73,15 @@ class TestApiClient(
             CardEntity(account = account, cardNumber = cardNumber, expiryDate = expiryDate)
         )
         return card.id
+    }
+
+    fun createUserWithCheckingAndSavings(
+        phoneNumber: String = "+79991234567"
+    ): TestAccounts {
+        val userId = createUser(phoneNumber = phoneNumber)
+        val checking = createAccountWithCard(userId, "CHECKING")
+        val savingsNumber = createAccount(userId, "SAVINGS")
+        return TestAccounts(userId, checking.accountNumber, savingsNumber, checking.cardNumber)
     }
 
     fun postJson(url: String, body: Any): MvcResult {
@@ -85,9 +99,15 @@ class TestApiClient(
         return objectMapper.readTree(result.response.contentAsString)["accountNumber"].asText()
     }
 
+    data class AccountWithCard(
+        val accountNumber: String,
+        val cardNumber: String?
+    )
+
     data class TestAccounts(
         val userId: Long,
         val checkingAccountNumber: String,
-        val savingsAccountNumber: String
+        val savingsAccountNumber: String,
+        val checkingCardNumber: String?
     )
 }

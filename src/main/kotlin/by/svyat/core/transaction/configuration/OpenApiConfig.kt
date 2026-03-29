@@ -4,11 +4,14 @@ import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Contact
 import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.servers.Server
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-class OpenApiConfig {
+class OpenApiConfig(
+    @Value("\${server.port:8080}") private val serverPort: Int
+) {
 
     @Bean
     fun openAPI(): OpenAPI = OpenAPI()
@@ -24,7 +27,7 @@ class OpenApiConfig {
         )
         .servers(
             listOf(
-                Server().url("http://localhost:8081").description("Local")
+                Server().url("http://localhost:$serverPort").description("Local")
             )
         )
 }

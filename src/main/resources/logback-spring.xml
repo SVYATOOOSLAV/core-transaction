@@ -34,11 +34,12 @@
 
     <!-- Application loggers -->
     <logger name="by.svyat.core.transaction" level="DEBUG"/>
+    <logger name="by.svyat.core.transaction.outbox" level="INFO"/>
 
     <!-- Spring / Hibernate - keep at INFO to reduce noise -->
     <logger name="org.springframework" level="INFO"/>
-    <logger name="org.hibernate.SQL" level="DEBUG"/>
-    <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
+    <logger name="org.hibernate.SQL" level="INFO"/>
+    <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="INFO"/>
     <logger name="org.liquibase" level="INFO"/>
 
     <!-- Profiles -->

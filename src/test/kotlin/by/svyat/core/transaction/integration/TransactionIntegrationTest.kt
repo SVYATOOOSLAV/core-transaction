@@ -27,6 +27,7 @@ class TransactionIntegrationTest : IntegrationTestBase() {
 
     private lateinit var checkingAccountNumber: String
     private lateinit var savingsAccountNumber: String
+    private var checkingCardNumber: String? = null
     private var userId: Long = 0
 
     @BeforeEach
@@ -35,6 +36,7 @@ class TransactionIntegrationTest : IntegrationTestBase() {
         userId = accounts.userId
         checkingAccountNumber = accounts.checkingAccountNumber
         savingsAccountNumber = accounts.savingsAccountNumber
+        checkingCardNumber = accounts.checkingCardNumber
         api.fundAccount(checkingAccountNumber)
     }
 
@@ -399,14 +401,14 @@ class TransactionIntegrationTest : IntegrationTestBase() {
 
         @Test
         fun `success and balances updated`() {
-            api.createCard(checkingAccountNumber, "4276000000000001")
+            val sourceCardNumber = checkingCardNumber!!
 
             val recipientUserId = api.createUser(phoneNumber = "+79997654321")
-            val recipientAccountNumber = api.createAccount(recipientUserId, "CHECKING")
-            api.createCard(recipientAccountNumber, "4276000000000002")
+            val recipient = api.createAccountWithCard(recipientUserId, "CHECKING")
+            val recipientCardNumber = recipient.cardNumber!!
 
             val request = TestDataFactory.interbankTransferRequest(
-                "4276000000000001", "4276000000000002",
+                sourceCardNumber, recipientCardNumber,
                 amount = BigDecimal("1500.00"), description = "Межбанковский перевод"
             )
 
@@ -424,17 +426,15 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 jsonPath("$.balance") { value(8500.0) }
             }
 
-            mockMvc.get("/api/v1/accounts/$recipientAccountNumber").andExpect {
+            mockMvc.get("/api/v1/accounts/${recipient.accountNumber}").andExpect {
                 jsonPath("$.balance") { value(1500.0) }
             }
         }
 
         @Test
         fun `source card not found returns 404`() {
-            api.createCard(checkingAccountNumber, "4276000000000001")
-
             val request = TestDataFactory.interbankTransferRequest(
-                "9999999999999999", "4276000000000001"
+                "9999999999999999", checkingCardNumber!!
             )
 
             mockMvc.post("/api/v1/transactions/interbank") {
@@ -447,14 +447,11 @@ class TransactionIntegrationTest : IntegrationTestBase() {
 
         @Test
         fun `insufficient funds returns 400`() {
-            api.createCard(checkingAccountNumber, "4276000000000001")
-
             val recipientUserId = api.createUser(phoneNumber = "+79997654321")
-            val recipientAccountNumber = api.createAccount(recipientUserId, "CHECKING")
-            api.createCard(recipientAccountNumber, "4276000000000002")
+            val recipient = api.createAccountWithCard(recipientUserId, "CHECKING")
 
             val request = TestDataFactory.interbankTransferRequest(
-                "4276000000000001", "4276000000000002", amount = BigDecimal("999999.00")
+                checkingCardNumber!!, recipient.cardNumber!!, amount = BigDecimal("999999.00")
             )
 
             mockMvc.post("/api/v1/transactions/interbank") {

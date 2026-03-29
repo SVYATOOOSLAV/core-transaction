@@ -6,6 +6,9 @@ services:
       POSTGRES_DB: transaction_db
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      TZ: Europe/Moscow
+      PGTZ: Europe/Moscow
+    command: ["postgres", "-c", "timezone=Europe/Moscow"]
     volumes:
       - transaction_pgdata:/var/lib/postgresql/data
     ports:

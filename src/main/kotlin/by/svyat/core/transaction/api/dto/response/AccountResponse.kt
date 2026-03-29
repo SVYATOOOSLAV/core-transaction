@@ -11,5 +11,6 @@ data class AccountResponse(
     val currency: String,
     val balance: BigDecimal,
     val isActive: Boolean,
-    val createdAt: OffsetDateTime
+    val createdAt: OffsetDateTime,
+    val cardNumber: String? = null
 )

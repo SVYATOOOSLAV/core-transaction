@@ -45,7 +45,8 @@ class AccountControllerTest {
     private fun accountResponse(
         id: Long = 1L,
         accountNumber: String = "1000000000000000001",
-        accountType: String = "CHECKING"
+        accountType: String = "CHECKING",
+        cardNumber: String? = null
     ) = AccountResponse(
         id = id,
         userId = 1L,
@@ -54,14 +55,15 @@ class AccountControllerTest {
         currency = "RUB",
         balance = BigDecimal.ZERO,
         isActive = true,
-        createdAt = now
+        createdAt = now,
+        cardNumber = cardNumber
     )
 
     @Test
-    fun `POST - createAccount - returns 201`() {
+    fun `POST - createAccount - CHECKING returns 201 with cardNumber`() {
         every {
             accountService.createAccount(1L, AccountType.CHECKING, "RUB")
-        } returns accountResponse()
+        } returns accountResponse(cardNumber = "4200000000000001")
 
         val request = CreateAccountRequest(1L, "CHECKING", "RUB")
 
@@ -73,6 +75,7 @@ class AccountControllerTest {
             jsonPath("$.id") { value(1) }
             jsonPath("$.accountType") { value("CHECKING") }
             jsonPath("$.accountNumber") { value("1000000000000000001") }
+            jsonPath("$.cardNumber") { value("4200000000000001") }
         }
     }
 
@@ -90,7 +93,7 @@ class AccountControllerTest {
     }
 
     @Test
-    fun `POST - createAccount - lowercase account type is accepted`() {
+    fun `POST - createAccount - SAVINGS returns 201 without cardNumber`() {
         every {
             accountService.createAccount(1L, AccountType.SAVINGS, "RUB")
         } returns accountResponse(accountType = "SAVINGS", accountNumber = "2000000000000000001")
@@ -103,6 +106,7 @@ class AccountControllerTest {
         }.andExpect {
             status { isCreated() }
             jsonPath("$.accountType") { value("SAVINGS") }
+            jsonPath("$.cardNumber") { doesNotExist() }
         }
     }
 

@@ -35,7 +35,7 @@ class AccountIntegrationTest : IntegrationTestBase() {
     inner class CreateAccount {
 
         @Test
-        fun `full lifecycle - create and get by accountNumber and user`() {
+        fun `full lifecycle - create CHECKING and get by accountNumber and user`() {
             val request = TestDataFactory.accountRequest(userId)
 
             val createResult = mockMvc.post("/api/v1/accounts") {
@@ -48,6 +48,7 @@ class AccountIntegrationTest : IntegrationTestBase() {
                 jsonPath("$.balance") { value(0) }
                 jsonPath("$.isActive") { value(true) }
                 jsonPath("$.accountNumber") { exists() }
+                jsonPath("$.cardNumber") { exists() }
             }.andReturn()
 
             val accountNumber = objectMapper.readTree(createResult.response.contentAsString)["accountNumber"].asText()
@@ -55,11 +56,55 @@ class AccountIntegrationTest : IntegrationTestBase() {
             mockMvc.get("/api/v1/accounts/$accountNumber").andExpect {
                 status { isOk() }
                 jsonPath("$.accountNumber") { value(accountNumber) }
+                jsonPath("$.cardNumber") { exists() }
             }
 
             mockMvc.get("/api/v1/accounts/user/$userId").andExpect {
                 status { isOk() }
                 jsonPath("$.length()") { value(1) }
+            }
+        }
+
+        @Test
+        fun `CHECKING account creates card with correct format`() {
+            val request = TestDataFactory.accountRequest(userId, accountType = "CHECKING")
+
+            mockMvc.post("/api/v1/accounts") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(request)
+            }.andExpect {
+                status { isCreated() }
+                jsonPath("$.cardNumber") { isString() }
+                jsonPath("$.cardNumber") { value(org.hamcrest.Matchers.startsWith("4200")) }
+                jsonPath("$.cardNumber") { value(org.hamcrest.Matchers.hasLength(16)) }
+            }
+        }
+
+        @Test
+        fun `SAVINGS account does not create card`() {
+            val request = TestDataFactory.accountRequest(userId, accountType = "SAVINGS")
+
+            mockMvc.post("/api/v1/accounts") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(request)
+            }.andExpect {
+                status { isCreated() }
+                jsonPath("$.accountType") { value("SAVINGS") }
+                jsonPath("$.cardNumber") { doesNotExist() }
+            }
+        }
+
+        @Test
+        fun `DEPOSIT account does not create card`() {
+            val request = TestDataFactory.accountRequest(userId, accountType = "DEPOSIT")
+
+            mockMvc.post("/api/v1/accounts") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(request)
+            }.andExpect {
+                status { isCreated() }
+                jsonPath("$.accountType") { value("DEPOSIT") }
+                jsonPath("$.cardNumber") { doesNotExist() }
             }
         }
 

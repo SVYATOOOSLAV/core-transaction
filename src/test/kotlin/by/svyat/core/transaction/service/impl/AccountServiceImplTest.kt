@@ -14,8 +14,10 @@ import by.svyat.core.transaction.entity.UserEntity
 import by.svyat.core.transaction.entity.enums.AccountType
 import by.svyat.core.transaction.mapping.AccountMapper
 import by.svyat.core.transaction.repository.AccountRepository
+import by.svyat.core.transaction.repository.CardRepository
 import by.svyat.core.transaction.repository.UserRepository
 import by.svyat.core.transaction.component.AccountNumberGenerator
+import by.svyat.core.transaction.component.CardNumberGenerator
 import java.math.BigDecimal
 import java.time.OffsetDateTime
 import java.util.*
@@ -26,7 +28,12 @@ class AccountServiceImplTest {
     private val userRepository: UserRepository = mockk()
     private val accountMapper: AccountMapper = mockk()
     private val accountNumberGenerator: AccountNumberGenerator = mockk()
-    private val accountService = AccountServiceImpl(accountRepository, userRepository, accountMapper, accountNumberGenerator)
+    private val cardRepository: CardRepository = mockk()
+    private val cardNumberGenerator: CardNumberGenerator = mockk()
+    private val accountService = AccountServiceImpl(
+        accountRepository, userRepository, accountMapper, accountNumberGenerator,
+        cardRepository, cardNumberGenerator
+    )
 
     private val now = OffsetDateTime.now()
 
@@ -56,7 +63,8 @@ class AccountServiceImplTest {
         userId: Long = 1L,
         accountNumber: String = "1000000000000000001",
         accountType: String = "CHECKING",
-        balance: BigDecimal = BigDecimal("1000.0000")
+        balance: BigDecimal = BigDecimal("1000.0000"),
+        cardNumber: String? = null
     ) = AccountResponse(
         id = id,
         userId = userId,
@@ -65,19 +73,22 @@ class AccountServiceImplTest {
         currency = "RUB",
         balance = balance,
         isActive = true,
-        createdAt = now
+        createdAt = now,
+        cardNumber = cardNumber
     )
 
     // ===== createAccount =====
 
     @Test
-    fun `createAccount - success`() {
+    fun `createAccount - CHECKING creates card`() {
         val user = userEntity()
-        val expected = accountResponse()
+        val expected = accountResponse(cardNumber = "4200000000000001")
 
         every { userRepository.findById(1L) } returns Optional.of(user)
         every { accountNumberGenerator.generate(AccountType.CHECKING) } returns "1000000000000000001"
         every { accountRepository.save(any()) } answers { firstArg() }
+        every { cardNumberGenerator.generate() } returns "4200000000000001"
+        every { cardRepository.save(any()) } answers { firstArg() }
         every { accountMapper.toResponse(any()) } returns expected
 
         val result = accountService.createAccount(1L, AccountType.CHECKING, "RUB")
@@ -86,6 +97,29 @@ class AccountServiceImplTest {
         verify { userRepository.findById(1L) }
         verify { accountNumberGenerator.generate(AccountType.CHECKING) }
         verify { accountRepository.save(any()) }
+        verify { cardNumberGenerator.generate() }
+        verify { cardRepository.save(any()) }
+    }
+
+    @Test
+    fun `createAccount - SAVINGS does not create card`() {
+        val user = userEntity()
+        val expected = accountResponse(
+            accountNumber = "2000000000000000001",
+            accountType = "SAVINGS",
+            cardNumber = null
+        )
+
+        every { userRepository.findById(1L) } returns Optional.of(user)
+        every { accountNumberGenerator.generate(AccountType.SAVINGS) } returns "2000000000000000001"
+        every { accountRepository.save(any()) } answers { firstArg() }
+        every { accountMapper.toResponse(any()) } returns expected
+
+        val result = accountService.createAccount(1L, AccountType.SAVINGS, "RUB")
+
+        assertEquals(expected, result)
+        verify(exactly = 0) { cardNumberGenerator.generate() }
+        verify(exactly = 0) { cardRepository.save(any()) }
     }
 
     @Test

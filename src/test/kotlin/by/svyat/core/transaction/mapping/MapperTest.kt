@@ -4,12 +4,14 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import by.svyat.core.transaction.entity.AccountEntity
+import by.svyat.core.transaction.entity.CardEntity
 import by.svyat.core.transaction.entity.TransactionEntity
 import by.svyat.core.transaction.entity.UserEntity
 import by.svyat.core.transaction.entity.enums.AccountType
 import by.svyat.core.transaction.entity.enums.TransactionStatus
 import by.svyat.core.transaction.entity.enums.TransactionType
 import java.math.BigDecimal
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.util.*
 
@@ -64,7 +66,7 @@ class MapperTest {
     // ===== AccountMapper =====
 
     @Test
-    fun `AccountMapper - maps all fields correctly`() {
+    fun `AccountMapper - maps all fields correctly without card`() {
         val user = UserEntity(id = 5L, firstName = "Иван", lastName = "Иванов", phoneNumber = "+79991234567")
         val entity = AccountEntity(
             id = 10L,
@@ -85,6 +87,29 @@ class MapperTest {
         assertEquals("USD", response.currency)
         assertEquals(BigDecimal("12345.6789"), response.balance)
         assertEquals(true, response.isActive)
+        assertNull(response.cardNumber)
+    }
+
+    @Test
+    fun `AccountMapper - maps cardNumber from first card`() {
+        val user = UserEntity(id = 1L, firstName = "A", lastName = "B", phoneNumber = "+7")
+        val entity = AccountEntity(
+            id = 1L,
+            user = user,
+            accountNumber = "1000000000000000001",
+            accountType = AccountType.CHECKING
+        )
+        val card = CardEntity(
+            id = 1L,
+            account = entity,
+            cardNumber = "4200000000000001",
+            expiryDate = LocalDate.of(2031, 3, 28)
+        )
+        entity.cards.add(card)
+
+        val response = accountMapper.toResponse(entity)
+
+        assertEquals("4200000000000001", response.cardNumber)
     }
 
     @Test
@@ -102,6 +127,7 @@ class MapperTest {
 
         assertEquals("BROKERAGE", response.accountType)
         assertEquals(false, response.isActive)
+        assertNull(response.cardNumber)
     }
 
     // ===== TransactionMapper =====

@@ -16,7 +16,8 @@ class AccountMapper {
             currency = entity.currency,
             balance = entity.balance,
             isActive = entity.isActive,
-            createdAt = entity.createdAt
+            createdAt = entity.createdAt,
+            cardNumber = entity.cards.firstOrNull()?.cardNumber
         )
     }
 }

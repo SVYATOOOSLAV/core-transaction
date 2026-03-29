@@ -26,10 +26,12 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format-sql: true
+        format-sql: false
+        jdbc:
+          time_zone: Europe/Moscow
   kafka:
     bootstrap-servers: localhost:9092,localhost:9093,localhost:9094
     producer:
@@ -37,7 +39,7 @@ spring:
       retries: 3
   liquibase:
     enabled: true
-    change-log: classpath:db/changelog/db.changelog-master.xml
+    change-log: 'classpath:db/changelog/db.changelog-master.xml'
 
 
 outbox:
