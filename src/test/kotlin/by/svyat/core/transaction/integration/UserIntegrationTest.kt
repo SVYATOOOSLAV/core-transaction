@@ -3,25 +3,20 @@ package by.svyat.core.transaction.integration
 import by.svyat.core.transaction.IntegrationTestBase
 import by.svyat.core.transaction.TestApiClient
 import by.svyat.core.transaction.TestDataFactory
-import com.fasterxml.jackson.databind.ObjectMapper
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.http.MediaType
-import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.get
-import org.springframework.test.web.servlet.post
 
 class UserIntegrationTest : IntegrationTestBase() {
 
     @Autowired
-    private lateinit var mockMvc: MockMvc
-
-    @Autowired
-    private lateinit var objectMapper: ObjectMapper
-
-    @Autowired
     private lateinit var api: TestApiClient
+
+    @BeforeEach
+    fun setUp() {
+        api.setAuthToken(authToken)
+    }
 
     @Nested
     inner class CreateUser {
@@ -30,10 +25,7 @@ class UserIntegrationTest : IntegrationTestBase() {
         fun `full lifecycle - create and get by id and phone`() {
             val request = TestDataFactory.userRequest(patronymic = "Иванович", email = "ivan@mail.ru")
 
-            val createResult = mockMvc.post("/api/v1/users") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            val createResult = authPost("/api/v1/users", request).andExpect {
                 status { isCreated() }
                 jsonPath("$.id") { exists() }
                 jsonPath("$.firstName") { value("Иван") }
@@ -46,13 +38,13 @@ class UserIntegrationTest : IntegrationTestBase() {
 
             val userId = objectMapper.readTree(createResult.response.contentAsString)["id"].asLong()
 
-            mockMvc.get("/api/v1/users/$userId").andExpect {
+            authGet("/api/v1/users/$userId").andExpect {
                 status { isOk() }
                 jsonPath("$.id") { value(userId) }
                 jsonPath("$.firstName") { value("Иван") }
             }
 
-            mockMvc.get("/api/v1/users/phone/+79991234567").andExpect {
+            authGet("/api/v1/users/phone/+79991234567").andExpect {
                 status { isOk() }
                 jsonPath("$.phoneNumber") { value("+79991234567") }
             }
@@ -62,10 +54,7 @@ class UserIntegrationTest : IntegrationTestBase() {
         fun `duplicate phone returns 409`() {
             api.createUser(phoneNumber = "+79991111111")
 
-            mockMvc.post("/api/v1/users") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(TestDataFactory.userRequest(phoneNumber = "+79991111111"))
-            }.andExpect {
+            authPost("/api/v1/users", TestDataFactory.userRequest(phoneNumber = "+79991111111")).andExpect {
                 status { isConflict() }
             }
         }
@@ -74,10 +63,7 @@ class UserIntegrationTest : IntegrationTestBase() {
         fun `validation error for blank firstName returns 400`() {
             val request = mapOf("firstName" to "", "lastName" to "Иванов", "phoneNumber" to "+79991234567")
 
-            mockMvc.post("/api/v1/users") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/users", request).andExpect {
                 status { isBadRequest() }
                 jsonPath("$.status") { value(400) }
             }
@@ -89,14 +75,14 @@ class UserIntegrationTest : IntegrationTestBase() {
 
         @Test
         fun `not found returns 404`() {
-            mockMvc.get("/api/v1/users/999999").andExpect {
+            authGet("/api/v1/users/999999").andExpect {
                 status { isNotFound() }
             }
         }
 
         @Test
         fun `by phone - not found returns 404`() {
-            mockMvc.get("/api/v1/users/phone/+70000000000").andExpect {
+            authGet("/api/v1/users/phone/+70000000000").andExpect {
                 status { isNotFound() }
             }
         }

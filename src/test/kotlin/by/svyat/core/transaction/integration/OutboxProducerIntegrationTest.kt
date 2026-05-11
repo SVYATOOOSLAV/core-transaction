@@ -6,26 +6,16 @@ import by.svyat.core.transaction.TestDataFactory
 import by.svyat.core.transaction.entity.enums.OutboxEventType
 import by.svyat.core.transaction.outbox.enums.OutboxAggregateType
 import by.svyat.core.transaction.repository.OutboxMessageRepository
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.http.MediaType
-import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.post
 import java.math.BigDecimal
 import kotlin.math.abs
 
 class OutboxProducerIntegrationTest : IntegrationTestBase() {
-
-    @Autowired
-    private lateinit var mockMvc: MockMvc
-
-    @Autowired
-    private lateinit var objectMapper: ObjectMapper
 
     @Autowired
     private lateinit var api: TestApiClient
@@ -38,10 +28,10 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
 
     @BeforeEach
     fun setUp() {
+        api.setAuthToken(authToken)
         val accounts = api.createUserWithCheckingAndSavings()
         checkingAccountNumber = accounts.checkingAccountNumber
         savingsAccountNumber = accounts.savingsAccountNumber
-        // fundAccount creates a MONEY_GIFT transaction which also writes to outbox
         api.fundAccount(checkingAccountNumber)
     }
 
@@ -50,7 +40,6 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
 
         @Test
         fun `outbox message is created together with transaction on debit-credit operation`() {
-            // fundAccount already created 1 outbox message (MONEY_GIFT)
             val initialCount = outboxMessageRepository.count()
 
             val request = TestDataFactory.transferRequest(
@@ -58,10 +47,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("1000.00"), description = "На накопления"
             )
 
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/savings", request).andExpect {
                 status { isCreated() }
             }
 
@@ -78,10 +64,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 description = "Подарок"
             )
 
-            mockMvc.post("/api/v1/transactions/gift") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/gift", request).andExpect {
                 status { isCreated() }
             }
 
@@ -92,16 +75,12 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
         fun `no outbox message is created when transaction fails`() {
             val initialCount = outboxMessageRepository.count()
 
-            // insufficient funds — balance is 10000, requesting 99999
             val request = TestDataFactory.transferRequest(
                 checkingAccountNumber, savingsAccountNumber,
                 amount = BigDecimal("99999.00")
             )
 
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/savings", request).andExpect {
                 status { isBadRequest() }
             }
 
@@ -117,10 +96,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("100.00")
             )
 
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/savings", request).andExpect {
                 status { isNotFound() }
             }
 
@@ -138,15 +114,11 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("1000.00")
             )
 
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/savings", request).andExpect {
                 status { isCreated() }
             }
 
             val messages = outboxMessageRepository.findAll()
-            // last message is the transfer (first is fundAccount's MONEY_GIFT)
             val transferMessage = messages.sortedBy { it.id }.last()
 
             assertEquals(OutboxAggregateType.TRANSACTION.name, transferMessage.aggregateType)
@@ -160,10 +132,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("1000.00")
             )
 
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/savings", request).andExpect {
                 status { isCreated() }
             }
 
@@ -179,10 +148,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("200.00")
             )
 
-            mockMvc.post("/api/v1/transactions/gift") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/gift", request).andExpect {
                 status { isCreated() }
             }
 
@@ -198,10 +164,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("2500.00")
             )
 
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/savings", request).andExpect {
                 status { isCreated() }
             }
 
@@ -224,10 +187,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("777.00")
             )
 
-            mockMvc.post("/api/v1/transactions/gift") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/gift", request).andExpect {
                 status { isCreated() }
             }
 
@@ -246,10 +206,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("500.00")
             )
 
-            val result = mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            val result = authPost("/api/v1/transactions/savings", request).andExpect {
                 status { isCreated() }
             }.andReturn()
 
@@ -271,10 +228,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("100.00")
             )
 
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/savings", request).andExpect {
                 status { isCreated() }
             }
 
@@ -297,16 +251,12 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
 
         @Test
         fun `events for same account always land in same partition`() {
-            // Create multiple transactions for the same account
             repeat(3) {
                 val request = TestDataFactory.moneyGiftRequest(
                     destinationAccountNumber = checkingAccountNumber,
                     amount = BigDecimal("100.00")
                 )
-                mockMvc.post("/api/v1/transactions/gift") {
-                    contentType = MediaType.APPLICATION_JSON
-                    content = objectMapper.writeValueAsString(request)
-                }.andExpect {
+                authPost("/api/v1/transactions/gift", request).andExpect {
                     status { isCreated() }
                 }
             }
@@ -332,21 +282,13 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("500.00")
             )
 
-            // First call
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/savings", request).andExpect {
                 status { isCreated() }
             }
 
             val countAfterFirst = outboxMessageRepository.count()
 
-            // Second call with same idempotency key
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/savings", request).andExpect {
                 status { isCreated() }
             }
 
@@ -363,21 +305,13 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
         fun `each transaction type creates outbox message`() {
             val initialCount = outboxMessageRepository.count()
 
-            // 1. Transfer to savings
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(
-                    TestDataFactory.transferRequest(checkingAccountNumber, savingsAccountNumber, BigDecimal("100.00"))
-                )
-            }.andExpect { status { isCreated() } }
+            authPost("/api/v1/transactions/savings", TestDataFactory.transferRequest(
+                checkingAccountNumber, savingsAccountNumber, BigDecimal("100.00")
+            )).andExpect { status { isCreated() } }
 
-            // 2. Money gift
-            mockMvc.post("/api/v1/transactions/gift") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(
-                    TestDataFactory.moneyGiftRequest(savingsAccountNumber, BigDecimal("200.00"))
-                )
-            }.andExpect { status { isCreated() } }
+            authPost("/api/v1/transactions/gift", TestDataFactory.moneyGiftRequest(
+                savingsAccountNumber, BigDecimal("200.00")
+            )).andExpect { status { isCreated() } }
 
             assertEquals(initialCount + 2, outboxMessageRepository.count())
 
@@ -397,14 +331,10 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
 
         @Test
         fun `messages have monotonically increasing ids within the same partition`() {
-            // Create several transactions targeting the same account → same partition
             repeat(5) {
-                mockMvc.post("/api/v1/transactions/gift") {
-                    contentType = MediaType.APPLICATION_JSON
-                    content = objectMapper.writeValueAsString(
-                        TestDataFactory.moneyGiftRequest(checkingAccountNumber, BigDecimal("10.00"))
-                    )
-                }.andExpect { status { isCreated() } }
+                authPost("/api/v1/transactions/gift", TestDataFactory.moneyGiftRequest(
+                    checkingAccountNumber, BigDecimal("10.00")
+                )).andExpect { status { isCreated() } }
             }
 
             val messagesInPartition = outboxMessageRepository.findAll()

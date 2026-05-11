@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(./gradlew compileKotlin compileTestKotlin)",
+      "Bash(./gradlew test:*)",
+      "Bash(cat D:/KotlinProjects/VKR/core-transaction/build/test-results/test/*.xml)"
     ]
   }
 }

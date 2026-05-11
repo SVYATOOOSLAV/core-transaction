@@ -17,10 +17,13 @@ import by.svyat.core.transaction.api.common.BusinessException
 import by.svyat.core.transaction.api.controller.impl.UserController
 import by.svyat.core.transaction.api.dto.request.CreateUserRequest
 import by.svyat.core.transaction.api.dto.response.UserResponse
+import by.svyat.core.transaction.TestSecurityConfig
 import by.svyat.core.transaction.service.UserService
+import org.springframework.context.annotation.Import
 import java.time.OffsetDateTime
 
 @WebMvcTest(UserController::class)
+@Import(TestSecurityConfig::class)
 class UserControllerTest {
 
     @TestConfiguration

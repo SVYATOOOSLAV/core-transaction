@@ -24,5 +24,9 @@ spring:
     enabled: true
     change-log: 'classpath:db/changelog/db.changelog-master.xml'
 
+jwt:
+  secret: test-secret-key-for-jwt-must-be-at-least-256-bits-long-for-testing!
+  expiration-ms: 86400000
+
 outbox:
   consumer-enabled: false

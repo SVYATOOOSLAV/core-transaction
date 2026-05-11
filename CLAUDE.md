@@ -47,6 +47,51 @@ Spring Boot 3.5 / Kotlin 1.9.25 microservice for banking transaction processing.
 
 **Database migrations**: Liquibase with XML changelogs referencing SQL files under `src/main/resources/db/changelog/`. Hibernate DDL is set to `validate` — schema must exist before boot.
 
+## Authentication & Authorization
+
+**Model**: service-account JWT (NOT user-level). Конечного пользователя аутентифицирует внешний gateway; `core-transaction` принимает только сервисные токены. Никаких `/register` и `/login` для пользователей в этом сервисе нет.
+
+Service-accounts задаются в `application.yaml` (секция `auth.service-accounts`), обменивают `name`+`secret` на JWT через `POST /api/v1/auth/service-token` и шлют его в `Authorization: Bearer <token>`. TTL = 1 час.
+
+**Roles** (выставлены через `@PreAuthorize` на impl-классах контроллеров):
+- `GATEWAY` — все write-операции (transfer/*, sbp, interbank, gift, create user/account) + чтение
+- `SUPPORT` — `gift` + чтение пользователей/счетов/транзакций
+
+URL-уровень в `SecurityConfig` делает только грубую отсечку: `/api/v1/auth/**`, `/actuator/**`, `/swagger-ui/**`, `/v3/api-docs/**` → `permitAll`; всё остальное → `authenticated()`. Role-based авторизация — на методах. Для подробной матрицы доступа см. [docs/auth-api.md](docs/auth-api.md).
+
+**JWT format**: HMAC-SHA, claims `sub = serviceName`, `roles: List<String>` (поддерживается мультироль), `iat`, `exp`.
+
+**Key files**:
+- `security/JwtService` — генерация/парсинг JWT
+- `security/JwtAuthenticationFilter` — кладёт `ROLE_*` authorities в `SecurityContext`
+- `security/RestAuthenticationEntryPoint` — 401 JSON при отсутствии/невалидном токене (без него Spring по дефолту вернул бы 403)
+- `configuration/SecurityConfig` — `@EnableMethodSecurity` + filter chain
+- `configuration/ServiceAccountsProperties` — `@ConfigurationProperties(prefix = "auth")`
+- `service/impl/AuthServiceImpl` — `/service-token` (имя+секрет → JWT)
+- `api/common/GlobalExceptionHandler.handleAccessDenied` — 403 JSON на нехватку роли (иначе generic handler конвертировал бы `AccessDeniedException` в 500)
+
+**HTTP codes**:
+- `401` — нет заголовка `Authorization`, истёкший токен, невалидная подпись, нет claim `roles`
+- `403` — токен валидный, но `@PreAuthorize` требует роль, которой в токене нет
+
+**Config (snippet)**:
+```yaml
+jwt:
+  secret: ${JWT_SECRET:...}
+  expiration-ms: 3600000
+
+auth:
+  service-accounts:
+    - name: gateway
+      roles: [GATEWAY]
+      secret: ${GATEWAY_SECRET:gateway-dev-secret-change-me}
+    - name: support
+      roles: [SUPPORT]
+      secret: ${SUPPORT_SECRET:support-dev-secret-change-me}
+```
+
+**OpenAPI / Swagger**: `OpenApiConfig.authResponsesCustomizer` (GlobalOpenApiCustomizer) автоматически добавляет 401 и 403 ответы со ссылкой на `ErrorResponse` ко всем операциям — не нужно прописывать их в `@ApiResponses` каждого endpoint вручную.
+
 ## Outbox Pattern
 
 Implements a Transactional Outbox with Kafka-like partition semantics for reliable event publishing.

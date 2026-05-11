@@ -3,24 +3,13 @@ package by.svyat.core.transaction.integration
 import by.svyat.core.transaction.IntegrationTestBase
 import by.svyat.core.transaction.TestApiClient
 import by.svyat.core.transaction.TestDataFactory
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.http.MediaType
-import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.get
-import org.springframework.test.web.servlet.post
 import java.math.BigDecimal
 
 class TransactionIntegrationTest : IntegrationTestBase() {
-
-    @Autowired
-    private lateinit var mockMvc: MockMvc
-
-    @Autowired
-    private lateinit var objectMapper: ObjectMapper
 
     @Autowired
     private lateinit var api: TestApiClient
@@ -32,6 +21,7 @@ class TransactionIntegrationTest : IntegrationTestBase() {
 
     @BeforeEach
     fun setUp() {
+        api.setAuthToken(authToken)
         val accounts = api.createUserWithCheckingAndSavings()
         userId = accounts.userId
         checkingAccountNumber = accounts.checkingAccountNumber
@@ -50,21 +40,18 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("3000.00"), description = "На накопления"
             )
 
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/savings", request).andExpect {
                 status { isCreated() }
                 jsonPath("$.transactionType") { value("TRANSFER_SAVINGS") }
                 jsonPath("$.status") { value("COMPLETED") }
                 jsonPath("$.amount") { value(3000.0) }
             }
 
-            mockMvc.get("/api/v1/accounts/$checkingAccountNumber").andExpect {
+            authGet("/api/v1/accounts/$checkingAccountNumber").andExpect {
                 jsonPath("$.balance") { value(7000.0) }
             }
 
-            mockMvc.get("/api/v1/accounts/$savingsAccountNumber").andExpect {
+            authGet("/api/v1/accounts/$savingsAccountNumber").andExpect {
                 jsonPath("$.balance") { value(3000.0) }
             }
         }
@@ -75,20 +62,14 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 checkingAccountNumber, savingsAccountNumber, amount = BigDecimal("1000.00")
             )
 
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect { status { isCreated() } }
+            authPost("/api/v1/transactions/savings", request).andExpect { status { isCreated() } }
 
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/savings", request).andExpect {
                 status { isCreated() }
                 jsonPath("$.transactionType") { value("TRANSFER_SAVINGS") }
             }
 
-            mockMvc.get("/api/v1/accounts/$checkingAccountNumber").andExpect {
+            authGet("/api/v1/accounts/$checkingAccountNumber").andExpect {
                 jsonPath("$.balance") { value(9000.0) }
             }
         }
@@ -99,10 +80,7 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 checkingAccountNumber, savingsAccountNumber, amount = BigDecimal("999999.00")
             )
 
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/savings", request).andExpect {
                 status { isBadRequest() }
                 jsonPath("$.message") { exists() }
             }
@@ -114,45 +92,33 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 checkingAccountNumber, checkingAccountNumber, amount = BigDecimal("100.00")
             )
 
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/savings", request).andExpect {
                 status { isBadRequest() }
             }
         }
 
         @Test
         fun `backward direction (savings to checking) success`() {
-            // Сначала пополним savings, потом переведём обратно
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(
-                    TestDataFactory.transferRequest(
-                        checkingAccountNumber, savingsAccountNumber, amount = BigDecimal("4000.00")
-                    )
-                )
-            }.andExpect { status { isCreated() } }
+            authPost("/api/v1/transactions/savings", TestDataFactory.transferRequest(
+                checkingAccountNumber, savingsAccountNumber, amount = BigDecimal("4000.00")
+            )).andExpect { status { isCreated() } }
 
             val backward = TestDataFactory.transferRequest(
                 savingsAccountNumber, checkingAccountNumber,
                 amount = BigDecimal("1500.00"), description = "Возврат на расчётный"
             )
 
-            mockMvc.post("/api/v1/transactions/savings") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(backward)
-            }.andExpect {
+            authPost("/api/v1/transactions/savings", backward).andExpect {
                 status { isCreated() }
                 jsonPath("$.transactionType") { value("TRANSFER_SAVINGS") }
                 jsonPath("$.sourceAccountNumber") { value(savingsAccountNumber) }
                 jsonPath("$.destinationAccountNumber") { value(checkingAccountNumber) }
             }
 
-            mockMvc.get("/api/v1/accounts/$savingsAccountNumber").andExpect {
+            authGet("/api/v1/accounts/$savingsAccountNumber").andExpect {
                 jsonPath("$.balance") { value(2500.0) }
             }
-            mockMvc.get("/api/v1/accounts/$checkingAccountNumber").andExpect {
+            authGet("/api/v1/accounts/$checkingAccountNumber").andExpect {
                 jsonPath("$.balance") { value(7500.0) }
             }
         }
@@ -170,20 +136,17 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("2000.00"), description = "На вклад"
             )
 
-            mockMvc.post("/api/v1/transactions/deposit") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/deposit", request).andExpect {
                 status { isCreated() }
                 jsonPath("$.transactionType") { value("TRANSFER_DEPOSIT") }
                 jsonPath("$.status") { value("COMPLETED") }
             }
 
-            mockMvc.get("/api/v1/accounts/$checkingAccountNumber").andExpect {
+            authGet("/api/v1/accounts/$checkingAccountNumber").andExpect {
                 jsonPath("$.balance") { value(8000.0) }
             }
 
-            mockMvc.get("/api/v1/accounts/$depositAccountNumber").andExpect {
+            authGet("/api/v1/accounts/$depositAccountNumber").andExpect {
                 jsonPath("$.balance") { value(2000.0) }
             }
         }
@@ -201,20 +164,17 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("5000.00"), description = "На брокерский счёт"
             )
 
-            mockMvc.post("/api/v1/transactions/brokerage") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/brokerage", request).andExpect {
                 status { isCreated() }
                 jsonPath("$.transactionType") { value("TRANSFER_BROKERAGE") }
                 jsonPath("$.status") { value("COMPLETED") }
             }
 
-            mockMvc.get("/api/v1/accounts/$checkingAccountNumber").andExpect {
+            authGet("/api/v1/accounts/$checkingAccountNumber").andExpect {
                 jsonPath("$.balance") { value(5000.0) }
             }
 
-            mockMvc.get("/api/v1/accounts/$brokerageAccountNumber").andExpect {
+            authGet("/api/v1/accounts/$brokerageAccountNumber").andExpect {
                 jsonPath("$.balance") { value(5000.0) }
             }
         }
@@ -232,21 +192,18 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("2500.00"), description = "Между расчётными"
             )
 
-            mockMvc.post("/api/v1/transactions/checking") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/checking", request).andExpect {
                 status { isCreated() }
                 jsonPath("$.transactionType") { value("TRANSFER_CHECKING") }
                 jsonPath("$.status") { value("COMPLETED") }
                 jsonPath("$.amount") { value(2500.0) }
             }
 
-            mockMvc.get("/api/v1/accounts/$checkingAccountNumber").andExpect {
+            authGet("/api/v1/accounts/$checkingAccountNumber").andExpect {
                 jsonPath("$.balance") { value(7500.0) }
             }
 
-            mockMvc.get("/api/v1/accounts/$secondCheckingNumber").andExpect {
+            authGet("/api/v1/accounts/$secondCheckingNumber").andExpect {
                 jsonPath("$.balance") { value(2500.0) }
             }
         }
@@ -257,10 +214,7 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 checkingAccountNumber, checkingAccountNumber, amount = BigDecimal("100.00")
             )
 
-            mockMvc.post("/api/v1/transactions/checking") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/checking", request).andExpect {
                 status { isBadRequest() }
             }
         }
@@ -271,10 +225,7 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 checkingAccountNumber, savingsAccountNumber, amount = BigDecimal("100.00")
             )
 
-            mockMvc.post("/api/v1/transactions/checking") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/checking", request).andExpect {
                 status { isBadRequest() }
             }
         }
@@ -289,17 +240,14 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 savingsAccountNumber, amount = BigDecimal("5000.00"), description = "Подарок"
             )
 
-            mockMvc.post("/api/v1/transactions/gift") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/gift", request).andExpect {
                 status { isCreated() }
                 jsonPath("$.transactionType") { value("MONEY_GIFT") }
                 jsonPath("$.sourceAccountNumber") { doesNotExist() }
                 jsonPath("$.destinationAccountNumber") { value(savingsAccountNumber) }
             }
 
-            mockMvc.get("/api/v1/accounts/$savingsAccountNumber").andExpect {
+            authGet("/api/v1/accounts/$savingsAccountNumber").andExpect {
                 jsonPath("$.balance") { value(5000.0) }
             }
         }
@@ -317,21 +265,18 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 checkingAccountNumber, "+79997654321", amount = BigDecimal("2000.00"), description = "Перевод по СБП"
             )
 
-            mockMvc.post("/api/v1/transactions/sbp") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/sbp", request).andExpect {
                 status { isCreated() }
                 jsonPath("$.transactionType") { value("SBP_TRANSFER") }
                 jsonPath("$.status") { value("COMPLETED") }
                 jsonPath("$.amount") { value(2000.0) }
             }
 
-            mockMvc.get("/api/v1/accounts/$checkingAccountNumber").andExpect {
+            authGet("/api/v1/accounts/$checkingAccountNumber").andExpect {
                 jsonPath("$.balance") { value(8000.0) }
             }
 
-            mockMvc.get("/api/v1/accounts/$recipientAccountNumber").andExpect {
+            authGet("/api/v1/accounts/$recipientAccountNumber").andExpect {
                 jsonPath("$.balance") { value(2000.0) }
             }
         }
@@ -342,10 +287,7 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 checkingAccountNumber, "+70000000000"
             )
 
-            mockMvc.post("/api/v1/transactions/sbp") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/sbp", request).andExpect {
                 status { isNotFound() }
             }
         }
@@ -359,10 +301,7 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 checkingAccountNumber, "+79997654321", amount = BigDecimal("999999.00")
             )
 
-            mockMvc.post("/api/v1/transactions/sbp") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/sbp", request).andExpect {
                 status { isBadRequest() }
             }
         }
@@ -384,21 +323,18 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 amount = BigDecimal("1500.00"), description = "Межбанковский перевод"
             )
 
-            mockMvc.post("/api/v1/transactions/interbank") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/interbank", request).andExpect {
                 status { isCreated() }
                 jsonPath("$.transactionType") { value("INTERBANK_TRANSFER") }
                 jsonPath("$.status") { value("COMPLETED") }
                 jsonPath("$.amount") { value(1500.0) }
             }
 
-            mockMvc.get("/api/v1/accounts/$checkingAccountNumber").andExpect {
+            authGet("/api/v1/accounts/$checkingAccountNumber").andExpect {
                 jsonPath("$.balance") { value(8500.0) }
             }
 
-            mockMvc.get("/api/v1/accounts/${recipient.accountNumber}").andExpect {
+            authGet("/api/v1/accounts/${recipient.accountNumber}").andExpect {
                 jsonPath("$.balance") { value(1500.0) }
             }
         }
@@ -409,10 +345,7 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 "9999999999999999", checkingCardNumber!!
             )
 
-            mockMvc.post("/api/v1/transactions/interbank") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/interbank", request).andExpect {
                 status { isNotFound() }
             }
         }
@@ -426,10 +359,7 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 checkingCardNumber!!, recipient.cardNumber!!, amount = BigDecimal("999999.00")
             )
 
-            mockMvc.post("/api/v1/transactions/interbank") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/transactions/interbank", request).andExpect {
                 status { isBadRequest() }
             }
         }
@@ -444,14 +374,11 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 checkingAccountNumber, amount = BigDecimal("100.00"), description = "test"
             )
 
-            val result = mockMvc.post("/api/v1/transactions/gift") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andReturn()
+            val result = authPost("/api/v1/transactions/gift", request).andReturn()
 
             val txId = objectMapper.readTree(result.response.contentAsString)["id"].asLong()
 
-            mockMvc.get("/api/v1/transactions/$txId").andExpect {
+            authGet("/api/v1/transactions/$txId").andExpect {
                 status { isOk() }
                 jsonPath("$.id") { value(txId) }
                 jsonPath("$.status") { value("COMPLETED") }
@@ -460,7 +387,7 @@ class TransactionIntegrationTest : IntegrationTestBase() {
 
         @Test
         fun `not found returns 404`() {
-            mockMvc.get("/api/v1/transactions/999999").andExpect {
+            authGet("/api/v1/transactions/999999").andExpect {
                 status { isNotFound() }
             }
         }
@@ -471,7 +398,7 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 api.fundAccount(checkingAccountNumber, BigDecimal("100.00"))
             }
 
-            mockMvc.get("/api/v1/transactions/account/$checkingAccountNumber").andExpect {
+            authGet("/api/v1/transactions/account/$checkingAccountNumber").andExpect {
                 status { isOk() }
                 jsonPath("$.length()") { value(4) }
             }

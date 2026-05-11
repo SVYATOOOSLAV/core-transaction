@@ -4,6 +4,7 @@
 
 ## Содержание
 
+- [Аутентификация (Auth)](auth-api.md) — выпуск service-token, роли GATEWAY/SUPPORT, формат JWT
 - [Пользователи (Users)](users-api.md) — создание и получение пользователей
 - [Счета (Accounts)](accounts-api.md) — создание и получение банковских счетов
 - [Транзакции (Transactions)](transactions-api.md) — переводы, платежи, СБП

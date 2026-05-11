@@ -5,6 +5,10 @@ server:
 spring:
   application:
     name: core-transaction
+  autoconfigure:
+    exclude:
+    - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+    - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   main:
     banner-mode: off
   datasource:
@@ -41,6 +45,19 @@ spring:
     enabled: true
     change-log: 'classpath:db/changelog/db.changelog-master.xml'
 
+
+jwt:
+  secret: ${JWT_SECRET:vkr-core-transaction-secret-key-must-be-at-least-256-bits-long!}
+  expiration-ms: 3600000
+
+auth:
+  service-accounts:
+    - name: gateway
+      roles: [GATEWAY]
+      secret: ${GATEWAY_SECRET:gateway-dev-secret-change-me}
+    - name: support
+      roles: [SUPPORT]
+      secret: ${SUPPORT_SECRET:support-dev-secret-change-me}
 
 outbox:
   partition-count: 8

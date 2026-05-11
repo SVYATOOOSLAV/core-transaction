@@ -3,23 +3,12 @@ package by.svyat.core.transaction.integration
 import by.svyat.core.transaction.IntegrationTestBase
 import by.svyat.core.transaction.TestApiClient
 import by.svyat.core.transaction.TestDataFactory
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.http.MediaType
-import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.get
-import org.springframework.test.web.servlet.post
 
 class AccountIntegrationTest : IntegrationTestBase() {
-
-    @Autowired
-    private lateinit var mockMvc: MockMvc
-
-    @Autowired
-    private lateinit var objectMapper: ObjectMapper
 
     @Autowired
     private lateinit var api: TestApiClient
@@ -28,6 +17,7 @@ class AccountIntegrationTest : IntegrationTestBase() {
 
     @BeforeEach
     fun setUp() {
+        api.setAuthToken(authToken)
         userId = api.createUser()
     }
 
@@ -38,10 +28,7 @@ class AccountIntegrationTest : IntegrationTestBase() {
         fun `full lifecycle - create CHECKING and get by accountNumber and user`() {
             val request = TestDataFactory.accountRequest(userId)
 
-            val createResult = mockMvc.post("/api/v1/accounts") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            val createResult = authPost("/api/v1/accounts", request).andExpect {
                 status { isCreated() }
                 jsonPath("$.accountType") { value("CHECKING") }
                 jsonPath("$.currency") { value("RUB") }
@@ -53,13 +40,13 @@ class AccountIntegrationTest : IntegrationTestBase() {
 
             val accountNumber = objectMapper.readTree(createResult.response.contentAsString)["accountNumber"].asText()
 
-            mockMvc.get("/api/v1/accounts/$accountNumber").andExpect {
+            authGet("/api/v1/accounts/$accountNumber").andExpect {
                 status { isOk() }
                 jsonPath("$.accountNumber") { value(accountNumber) }
                 jsonPath("$.cardNumber") { exists() }
             }
 
-            mockMvc.get("/api/v1/accounts/user/$userId").andExpect {
+            authGet("/api/v1/accounts/user/$userId").andExpect {
                 status { isOk() }
                 jsonPath("$.length()") { value(1) }
             }
@@ -69,10 +56,7 @@ class AccountIntegrationTest : IntegrationTestBase() {
         fun `CHECKING account creates card with correct format`() {
             val request = TestDataFactory.accountRequest(userId, accountType = "CHECKING")
 
-            mockMvc.post("/api/v1/accounts") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/accounts", request).andExpect {
                 status { isCreated() }
                 jsonPath("$.cardNumber") { isString() }
                 jsonPath("$.cardNumber") { value(org.hamcrest.Matchers.startsWith("4200")) }
@@ -84,10 +68,7 @@ class AccountIntegrationTest : IntegrationTestBase() {
         fun `SAVINGS account does not create card`() {
             val request = TestDataFactory.accountRequest(userId, accountType = "SAVINGS")
 
-            mockMvc.post("/api/v1/accounts") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/accounts", request).andExpect {
                 status { isCreated() }
                 jsonPath("$.accountType") { value("SAVINGS") }
                 jsonPath("$.cardNumber") { doesNotExist() }
@@ -98,10 +79,7 @@ class AccountIntegrationTest : IntegrationTestBase() {
         fun `DEPOSIT account does not create card`() {
             val request = TestDataFactory.accountRequest(userId, accountType = "DEPOSIT")
 
-            mockMvc.post("/api/v1/accounts") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
+            authPost("/api/v1/accounts", request).andExpect {
                 status { isCreated() }
                 jsonPath("$.accountType") { value("DEPOSIT") }
                 jsonPath("$.cardNumber") { doesNotExist() }
@@ -123,22 +101,16 @@ class AccountIntegrationTest : IntegrationTestBase() {
 
         @Test
         fun `user not found returns 404`() {
-            mockMvc.post("/api/v1/accounts") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(
-                    TestDataFactory.accountRequest(userId = 999999L)
-                )
-            }.andExpect { status { isNotFound() } }
+            authPost("/api/v1/accounts", TestDataFactory.accountRequest(userId = 999999L)).andExpect {
+                status { isNotFound() }
+            }
         }
 
         @Test
         fun `invalid account type returns 400`() {
-            mockMvc.post("/api/v1/accounts") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(
-                    TestDataFactory.accountRequest(userId, accountType = "INVALID")
-                )
-            }.andExpect { status { isBadRequest() } }
+            authPost("/api/v1/accounts", TestDataFactory.accountRequest(userId, accountType = "INVALID")).andExpect {
+                status { isBadRequest() }
+            }
         }
 
         @Test
@@ -147,7 +119,7 @@ class AccountIntegrationTest : IntegrationTestBase() {
                 api.createAccount(userId, accountType = type)
             }
 
-            mockMvc.get("/api/v1/accounts/user/$userId").andExpect {
+            authGet("/api/v1/accounts/user/$userId").andExpect {
                 status { isOk() }
                 jsonPath("$.length()") { value(4) }
             }
@@ -159,14 +131,14 @@ class AccountIntegrationTest : IntegrationTestBase() {
 
         @Test
         fun `not found returns 404`() {
-            mockMvc.get("/api/v1/accounts/9999999999999999999").andExpect {
+            authGet("/api/v1/accounts/9999999999999999999").andExpect {
                 status { isNotFound() }
             }
         }
 
         @Test
         fun `by user - empty list`() {
-            mockMvc.get("/api/v1/accounts/user/$userId").andExpect {
+            authGet("/api/v1/accounts/user/$userId").andExpect {
                 status { isOk() }
                 jsonPath("$.length()") { value(0) }
             }

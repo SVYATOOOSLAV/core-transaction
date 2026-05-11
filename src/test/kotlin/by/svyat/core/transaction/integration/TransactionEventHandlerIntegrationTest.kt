@@ -29,9 +29,6 @@ class TransactionEventHandlerIntegrationTest : IntegrationTestBase() {
     @Autowired
     private lateinit var transactionEventHandler: TransactionEventHandler
 
-    @Autowired
-    private lateinit var objectMapper: ObjectMapper
-
     companion object {
         private val messageIdCounter = AtomicLong(System.nanoTime())
 

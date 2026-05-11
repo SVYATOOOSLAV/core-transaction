@@ -2,6 +2,7 @@ package by.svyat.core.transaction.api.controller.impl
 
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.RestController
 import by.svyat.core.transaction.api.common.BusinessException
 import by.svyat.core.transaction.api.controller.AccountApi
@@ -15,6 +16,7 @@ class AccountController(
     private val accountService: AccountService
 ) : AccountApi {
 
+    @PreAuthorize("hasRole('GATEWAY')")
     override fun createAccount(request: CreateAccountRequest): ResponseEntity<AccountResponse> {
         val accountType = try {
             AccountType.valueOf(request.accountType.uppercase())
@@ -34,10 +36,12 @@ class AccountController(
         return ResponseEntity(response, HttpStatus.CREATED)
     }
 
+    @PreAuthorize("hasAnyRole('GATEWAY','SUPPORT')")
     override fun getAccount(accountNumber: String): ResponseEntity<AccountResponse> {
         return ResponseEntity.ok(accountService.getAccount(accountNumber))
     }
 
+    @PreAuthorize("hasAnyRole('GATEWAY','SUPPORT')")
     override fun getAccountsByUser(userId: Long): ResponseEntity<List<AccountResponse>> {
         return ResponseEntity.ok(accountService.getAccountsByUser(userId))
     }

@@ -4,8 +4,13 @@ import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.http.MediaType
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.ResultActionsDsl
+import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
 import by.svyat.core.transaction.repository.AccountRepository
 import by.svyat.core.transaction.repository.CardRepository
 import by.svyat.core.transaction.repository.OutboxConsumerOffsetRepository
@@ -13,6 +18,8 @@ import by.svyat.core.transaction.repository.OutboxMessageRepository
 import by.svyat.core.transaction.repository.OutboxPartitionLockRepository
 import by.svyat.core.transaction.repository.TransactionRepository
 import by.svyat.core.transaction.repository.UserRepository
+import by.svyat.core.transaction.security.JwtService
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Testcontainers
 
@@ -42,6 +49,17 @@ abstract class IntegrationTestBase {
     @Autowired
     private lateinit var outboxPartitionLockRepository: OutboxPartitionLockRepository
 
+    @Autowired
+    protected lateinit var jwtService: JwtService
+
+    @Autowired
+    protected lateinit var mockMvc: MockMvc
+
+    @Autowired
+    protected lateinit var objectMapper: ObjectMapper
+
+    protected var authToken: String = ""
+
     @BeforeEach
     fun cleanDatabase() {
         outboxMessageRepository.deleteAll()
@@ -51,6 +69,21 @@ abstract class IntegrationTestBase {
         cardRepository.deleteAll()
         accRepository.deleteAll()
         usrRepository.deleteAll()
+        authToken = jwtService.generateToken("test-gateway", listOf("GATEWAY"))
+    }
+
+    protected fun authGet(url: String): ResultActionsDsl {
+        return mockMvc.get(url) {
+            header("Authorization", "Bearer $authToken")
+        }
+    }
+
+    protected fun authPost(url: String, body: Any): ResultActionsDsl {
+        return mockMvc.post(url) {
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(body)
+            header("Authorization", "Bearer $authToken")
+        }
     }
 
     companion object {

@@ -5,6 +5,7 @@ import mu.KotlinLogging
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.security.access.AccessDeniedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -84,6 +85,22 @@ class GlobalExceptionHandler {
             path = request.requestURI
         )
         return ResponseEntity(error, HttpStatus.NOT_FOUND)
+    }
+
+    @ExceptionHandler(AccessDeniedException::class)
+    fun handleAccessDenied(
+        ex: AccessDeniedException,
+        request: HttpServletRequest
+    ): ResponseEntity<ErrorResponse> {
+        log.warn { "[403] ${request.method} ${request.requestURI} - ${ex.message}" }
+        val error = ErrorResponse(
+            timestamp = OffsetDateTime.now(),
+            status = HttpStatus.FORBIDDEN.value(),
+            error = HttpStatus.FORBIDDEN.reasonPhrase,
+            message = ex.message ?: "Access denied",
+            path = request.requestURI
+        )
+        return ResponseEntity(error, HttpStatus.FORBIDDEN)
     }
 
     @ExceptionHandler(Exception::class)

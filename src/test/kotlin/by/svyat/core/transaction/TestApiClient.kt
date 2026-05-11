@@ -3,6 +3,7 @@ package by.svyat.core.transaction
 import by.svyat.core.transaction.entity.CardEntity
 import by.svyat.core.transaction.repository.AccountRepository
 import by.svyat.core.transaction.repository.CardRepository
+import by.svyat.core.transaction.security.JwtService
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -17,8 +18,15 @@ class TestApiClient(
     private val mockMvc: MockMvc,
     private val objectMapper: ObjectMapper,
     private val cardRepository: CardRepository,
-    private val accountRepository: AccountRepository
+    private val accountRepository: AccountRepository,
+    private val jwtService: JwtService
 ) {
+
+    private var token: String? = null
+
+    fun setAuthToken(token: String) {
+        this.token = token
+    }
 
     fun createUser(
         firstName: String = "Иван",
@@ -88,6 +96,7 @@ class TestApiClient(
         return mockMvc.post(url) {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(body)
+            token?.let { header("Authorization", "Bearer $it") }
         }.andReturn()
     }
 

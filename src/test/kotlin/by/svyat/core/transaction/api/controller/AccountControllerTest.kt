@@ -13,16 +13,19 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import by.svyat.core.transaction.TestSecurityConfig
 import by.svyat.core.transaction.api.common.BusinessException
 import by.svyat.core.transaction.api.controller.impl.AccountController
 import by.svyat.core.transaction.api.dto.request.CreateAccountRequest
 import by.svyat.core.transaction.api.dto.response.AccountResponse
 import by.svyat.core.transaction.entity.enums.AccountType
 import by.svyat.core.transaction.service.AccountService
+import org.springframework.context.annotation.Import
 import java.math.BigDecimal
 import java.time.OffsetDateTime
 
 @WebMvcTest(AccountController::class)
+@Import(TestSecurityConfig::class)
 class AccountControllerTest {
 
     @TestConfiguration
