@@ -97,9 +97,9 @@ outbox:
 
 **Idempotency**: All transaction write endpoints require a `idempotencyKey` (UUID). The `transactions` table has a unique constraint on this column.
 
-**Pessimistic locking with deadlock prevention**: Both source and destination accounts are locked with `@Lock(LockModeType.PESSIMISTIC_WRITE)` via `findByAccountNumberForUpdate()`. Accounts are locked in consistent alphabetical order by `accountNumber` to prevent deadlocks. Credit-only operations (MoneyGift, Compensation) also lock the destination account.
+**Pessimistic locking with deadlock prevention**: Both source and destination accounts are locked with `@Lock(LockModeType.PESSIMISTIC_WRITE)` via `findByAccountNumberForUpdate()`. Accounts are locked in consistent alphabetical order by `accountNumber` to prevent deadlocks. Credit-only operations (MoneyGift) lock only the destination account.
 
-**Transaction types**: `TRANSFER_SAVINGS`, `TRANSFER_DEPOSIT`, `TRANSFER_BROKERAGE` (internal), `INTERBANK_TRANSFER` (card-to-card), `SBP_TRANSFER` (phone-based P2P), `MONEY_GIFT`, `COMPENSATION` (credit-only — no debit), `CREDIT_PAYMENT` (debit-credit — debits source, credits destination).
+**Transaction types**: `TRANSFER_SAVINGS`, `TRANSFER_DEPOSIT`, `TRANSFER_BROKERAGE` (internal — bidirectional CHECKING ↔ SAVINGS/DEPOSIT/BROKERAGE), `TRANSFER_CHECKING` (CHECKING ↔ CHECKING by account numbers), `INTERBANK_TRANSFER` (card-to-card), `SBP_TRANSFER` (phone-based P2P), `MONEY_GIFT` (credit-only — no debit), `CREDIT_PAYMENT` (устаревший — новые транзакции не создаются).
 
 **Metrics**: Business-level counters (`transactions.total` tagged by type/status) and account balance gauge (`accounts.balance`). HTTP-level timing is provided by Spring Boot Actuator (`http.server.requests`).
 
@@ -131,7 +131,7 @@ outbox:
 - Base class: `IntegrationTestBase` — starts PostgreSQL container, configures `@SpringBootTest`, cleans DB via `@BeforeEach` in FK order (outbox messages → outbox offsets → outbox locks → transactions → cards → accounts → users)
 - `TestDataFactory` — factory object with default-valued methods for all request DTOs
 - `TestApiClient` — Spring `@Component` wrapping MockMvc for setup operations (create user/account/card, fund account). Returns `accountNumber` (String) from `createAccount()`.
-- Tests use `@Nested` inner classes grouped by business operation (e.g., `TransferToSavings`, `SbpTransfer`, `Compensation`)
+- Tests use `@Nested` inner classes grouped by business operation (e.g., `TransferToSavings`, `SbpTransfer`, `MoneyGift`)
 - Outbox consumer is disabled in test profile (`outbox.consumer-enabled: false`); producer writes are tested via `OutboxProducerIntegrationTest`
 
 **Important**: DB cleanup order must respect FK constraints: outbox messages → outbox offsets → outbox locks → transactions → cards → accounts → users. `@DirtiesContext` does NOT clean the database — it only recreates Spring context.

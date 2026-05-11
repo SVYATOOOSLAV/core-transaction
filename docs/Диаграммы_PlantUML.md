@@ -369,11 +369,10 @@ interface TransactionApi {
     + transferToSavings(request): ResponseEntity
     + transferToDeposit(request): ResponseEntity
     + transferToBrokerage(request): ResponseEntity
+    + transferToChecking(request): ResponseEntity
     + interbankTransfer(request): ResponseEntity
     + sbpTransfer(request): ResponseEntity
     + processMoneyGift(request): ResponseEntity
-    + processCompensation(request): ResponseEntity
-    + processCreditPayment(request): ResponseEntity
     + getTransaction(id): ResponseEntity
     + getTransactionsByAccount(accountNumber): ResponseEntity
 }
@@ -384,11 +383,10 @@ interface TransactionService {
     + transferToSavings(request): TransactionResponse
     + transferToDeposit(request): TransactionResponse
     + transferToBrokerage(request): TransactionResponse
+    + transferToChecking(request): TransactionResponse
     + interbankTransfer(request): TransactionResponse
     + sbpTransfer(request): TransactionResponse
     + processMoneyGift(request): TransactionResponse
-    + processCompensation(request): TransactionResponse
-    + processCreditPayment(request): TransactionResponse
 }
 
 class TransactionServiceImpl implements TransactionService

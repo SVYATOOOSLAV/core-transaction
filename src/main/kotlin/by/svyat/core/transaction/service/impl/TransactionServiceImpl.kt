@@ -7,8 +7,6 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import by.svyat.core.transaction.api.common.BusinessException
-import by.svyat.core.transaction.api.dto.request.CompensationRequest
-import by.svyat.core.transaction.api.dto.request.CreditPaymentRequest
 import by.svyat.core.transaction.api.dto.request.InterbankTransferRequest
 import by.svyat.core.transaction.api.dto.request.MoneyGiftRequest
 import by.svyat.core.transaction.api.dto.request.SbpTransferRequest
@@ -70,6 +68,36 @@ class TransactionServiceImpl(
     }
 
     @Transactional
+    override fun transferToChecking(request: TransferRequest): TransactionResponse {
+        log.info { "Checking-to-checking transfer: key=${request.idempotencyKey}, src=${request.sourceAccountNumber}, dst=${request.destinationAccountNumber}, amount=${request.amount}" }
+
+        checkIdempotency(request.idempotencyKey)?.let {
+            log.info { "Idempotent hit for key=${request.idempotencyKey}" }
+            return it
+        }
+
+        if (request.sourceAccountNumber == request.destinationAccountNumber) {
+            throw BusinessException(
+                HttpStatus.BAD_REQUEST,
+                "Source and destination accounts must differ"
+            )
+        }
+
+        val (sourceAccount, destAccount) = lockAccountsInOrder(
+            request.sourceAccountNumber,
+            request.destinationAccountNumber
+        )
+
+        validateBothChecking(sourceAccount, destAccount)
+        validateSource(sourceAccount, request.amount, TransactionType.TRANSFER_CHECKING)
+
+        return executeDebitCredit(
+            sourceAccount, destAccount, request.amount,
+            TransactionType.TRANSFER_CHECKING, request.idempotencyKey, request.description
+        )
+    }
+
+    @Transactional
     override fun interbankTransfer(request: InterbankTransferRequest): TransactionResponse {
         log.info { "Interbank transfer: key=${request.idempotencyKey}, srcCard=${request.sourceCardNumber}, dstCard=${request.destinationCardNumber}, amount=${request.amount}" }
 
@@ -94,7 +122,7 @@ class TransactionServiceImpl(
             sourceCard.account.accountNumber,
             destCard.account.accountNumber
         )
-        validateSource(sourceAccount, request.amount)
+        validateSource(sourceAccount, request.amount, TransactionType.INTERBANK_TRANSFER)
 
         return executeDebitCredit(
             sourceAccount, destAccount, request.amount,
@@ -124,7 +152,15 @@ class TransactionServiceImpl(
             request.sourceAccountNumber,
             destAccountUnlocked.accountNumber
         )
-        validateSource(sourceAccount, request.amount)
+
+        if (sourceAccount.accountType != AccountType.CHECKING) {
+            throw BusinessException(
+                HttpStatus.BAD_REQUEST,
+                "SBP transfer requires CHECKING source account, but was ${sourceAccount.accountType.name}"
+            )
+        }
+
+        validateSource(sourceAccount, request.amount, TransactionType.SBP_TRANSFER)
 
         return executeDebitCredit(
             sourceAccount, destAccount, request.amount,
@@ -137,39 +173,6 @@ class TransactionServiceImpl(
         return executeCreditOnly(
             request.idempotencyKey, request.destinationAccountNumber, request.amount,
             TransactionType.MONEY_GIFT, request.description
-        )
-    }
-
-    @Transactional
-    override fun processCompensation(request: CompensationRequest): TransactionResponse {
-        return executeCreditOnly(
-            request.idempotencyKey, request.destinationAccountNumber, request.amount,
-            TransactionType.COMPENSATION, request.description
-        )
-    }
-
-    @Transactional
-    override fun processCreditPayment(request: CreditPaymentRequest): TransactionResponse {
-        log.info { "Credit payment: key=${request.idempotencyKey}, src=${request.sourceAccountNumber}, dst=${request.destinationAccountNumber}, amount=${request.amount}" }
-
-        checkIdempotency(request.idempotencyKey)?.let {
-            log.info { "Idempotent hit for key=${request.idempotencyKey}" }
-            return it
-        }
-
-        val (sourceAccount, destAccount) = lockAccountsInOrder(
-            request.sourceAccountNumber,
-            request.destinationAccountNumber
-        )
-        validateSource(sourceAccount, request.amount)
-
-        if (!destAccount.isActive) {
-            throw BusinessException(HttpStatus.BAD_REQUEST, "Destination account is inactive")
-        }
-
-        return executeDebitCredit(
-            sourceAccount, destAccount, request.amount,
-            TransactionType.CREDIT_PAYMENT, request.idempotencyKey, request.description
         )
     }
 
@@ -194,7 +197,7 @@ class TransactionServiceImpl(
     private fun executeInternalTransfer(
         request: TransferRequest,
         type: TransactionType,
-        expectedDestType: AccountType
+        nonCheckingType: AccountType
     ): TransactionResponse {
         log.info { "Internal transfer: key=${request.idempotencyKey}, type=$type, src=${request.sourceAccountNumber}, dst=${request.destinationAccountNumber}, amount=${request.amount}" }
 
@@ -208,14 +211,8 @@ class TransactionServiceImpl(
             request.destinationAccountNumber
         )
 
-        if (destAccount.accountType != expectedDestType) {
-            throw BusinessException(
-                HttpStatus.BAD_REQUEST,
-                "Destination account type must be ${expectedDestType.name}, but was ${destAccount.accountType.name}"
-            )
-        }
-
-        validateSource(sourceAccount, request.amount)
+        validateCheckingPair(sourceAccount, destAccount, nonCheckingType)
+        validateSource(sourceAccount, request.amount, type)
 
         return executeDebitCredit(
             sourceAccount, destAccount, request.amount, type, request.idempotencyKey, request.description
@@ -362,14 +359,46 @@ class TransactionServiceImpl(
         }
     }
 
-    private fun validateSource(account: AccountEntity, amount: BigDecimal) {
+    private fun validateCheckingPair(
+        sourceAccount: AccountEntity,
+        destAccount: AccountEntity,
+        nonCheckingType: AccountType
+    ) {
+        val srcType = sourceAccount.accountType
+        val dstType = destAccount.accountType
+        val isForward = srcType == AccountType.CHECKING && dstType == nonCheckingType
+        val isBackward = srcType == nonCheckingType && dstType == AccountType.CHECKING
+        if (!isForward && !isBackward) {
+            throw BusinessException(
+                HttpStatus.BAD_REQUEST,
+                "Transfer must be between CHECKING and ${nonCheckingType.name} accounts, " +
+                        "but was ${srcType.name} -> ${dstType.name}"
+            )
+        }
+    }
+
+    private fun validateBothChecking(
+        sourceAccount: AccountEntity,
+        destAccount: AccountEntity
+    ) {
+        val srcType = sourceAccount.accountType
+        val dstType = destAccount.accountType
+        if (srcType != AccountType.CHECKING || dstType != AccountType.CHECKING) {
+            throw BusinessException(
+                HttpStatus.BAD_REQUEST,
+                "Both accounts must be CHECKING, but was ${srcType.name} -> ${dstType.name}"
+            )
+        }
+    }
+
+    private fun validateSource(account: AccountEntity, amount: BigDecimal, type: TransactionType) {
         if (!account.isActive) {
             log.warn { "Source account ${account.accountNumber} is inactive" }
             throw BusinessException(HttpStatus.BAD_REQUEST, "Source account is inactive")
         }
         if (account.balance < amount) {
             log.warn { "Insufficient funds: accountNumber=${account.accountNumber}, available=${account.balance}, requested=$amount" }
-            txCounter(TransactionType.INTERBANK_TRANSFER, "FAILED").increment()
+            txCounter(type, "FAILED").increment()
             throw BusinessException(
                 HttpStatus.BAD_REQUEST,
                 "Insufficient funds: available ${account.balance}, requested $amount"

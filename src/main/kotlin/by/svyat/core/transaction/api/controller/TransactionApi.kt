@@ -1,7 +1,5 @@
 package by.svyat.core.transaction.api.controller
 
-import by.svyat.core.transaction.api.dto.request.CompensationRequest
-import by.svyat.core.transaction.api.dto.request.CreditPaymentRequest
 import by.svyat.core.transaction.api.dto.request.InterbankTransferRequest
 import by.svyat.core.transaction.api.dto.request.MoneyGiftRequest
 import by.svyat.core.transaction.api.dto.request.SbpTransferRequest
@@ -95,6 +93,28 @@ interface TransactionApi {
     fun transferToBrokerage(@Valid @RequestBody request: TransferRequest): ResponseEntity<TransactionResponse>
 
     @Operation(
+        summary = "Перевод между расчётными счетами",
+        description = "Перевод средств между двумя расчётными (CHECKING) счетами по номерам счетов"
+    )
+    @ApiResponses(
+        ApiResponse(responseCode = "201", description = "Транзакция выполнена"),
+        ApiResponse(
+            responseCode = "400", description = "Ошибка валидации, недостаточно средств или совпадающие счета",
+            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+        ),
+        ApiResponse(
+            responseCode = "404", description = "Счёт не найден",
+            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+        ),
+        ApiResponse(
+            responseCode = "409", description = "Дублирование идемпотентного ключа",
+            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+        )
+    )
+    @PostMapping("/checking")
+    fun transferToChecking(@Valid @RequestBody request: TransferRequest): ResponseEntity<TransactionResponse>
+
+    @Operation(
         summary = "Межбанковский перевод",
         description = "Перевод средств между картами разных банков по номеру карты"
     )
@@ -159,50 +179,6 @@ interface TransactionApi {
     )
     @PostMapping("/gift")
     fun processMoneyGift(@Valid @RequestBody request: MoneyGiftRequest): ResponseEntity<TransactionResponse>
-
-    @Operation(
-        summary = "Компенсация",
-        description = "Зачисление компенсации на счёт получателя (только кредит, без дебета)"
-    )
-    @ApiResponses(
-        ApiResponse(responseCode = "201", description = "Транзакция выполнена"),
-        ApiResponse(
-            responseCode = "400", description = "Ошибка валидации",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
-        ),
-        ApiResponse(
-            responseCode = "404", description = "Счёт не найден",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
-        ),
-        ApiResponse(
-            responseCode = "409", description = "Дублирование идемпотентного ключа",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
-        )
-    )
-    @PostMapping("/compensation")
-    fun processCompensation(@Valid @RequestBody request: CompensationRequest): ResponseEntity<TransactionResponse>
-
-    @Operation(
-        summary = "Кредитный платёж",
-        description = "Перевод средств со счёта источника на кредитный счёт (дебет источника, кредит получателя)"
-    )
-    @ApiResponses(
-        ApiResponse(responseCode = "201", description = "Транзакция выполнена"),
-        ApiResponse(
-            responseCode = "400", description = "Ошибка валидации",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
-        ),
-        ApiResponse(
-            responseCode = "404", description = "Счёт не найден",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
-        ),
-        ApiResponse(
-            responseCode = "409", description = "Дублирование идемпотентного ключа",
-            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
-        )
-    )
-    @PostMapping("/credit-payment")
-    fun processCreditPayment(@Valid @RequestBody request: CreditPaymentRequest): ResponseEntity<TransactionResponse>
 
     @Operation(summary = "Получить транзакцию по ID")
     @ApiResponses(

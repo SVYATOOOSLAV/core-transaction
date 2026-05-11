@@ -20,7 +20,7 @@ GET /actuator/prometheus
 | `accounts.balance` | Gauge | `accountNumber` | Текущий баланс счёта после дебетовой операции |
 
 **Теги `transactions.total`:**
-- `type` — тип транзакции: `TRANSFER_SAVINGS`, `TRANSFER_DEPOSIT`, `TRANSFER_BROKERAGE`, `INTERBANK_TRANSFER`, `SBP_TRANSFER`, `MONEY_GIFT`, `COMPENSATION`, `CREDIT_PAYMENT`
+- `type` — тип транзакции: `TRANSFER_SAVINGS`, `TRANSFER_DEPOSIT`, `TRANSFER_BROKERAGE`, `TRANSFER_CHECKING`, `INTERBANK_TRANSFER`, `SBP_TRANSFER`, `MONEY_GIFT`
 - `status` — результат: `COMPLETED`, `FAILED`
 
 ---

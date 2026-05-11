@@ -109,7 +109,7 @@ class TransactionIntegrationTest : IntegrationTestBase() {
         }
 
         @Test
-        fun `wrong destination account type returns 400`() {
+        fun `both checking accounts returns 400`() {
             val request = TestDataFactory.transferRequest(
                 checkingAccountNumber, checkingAccountNumber, amount = BigDecimal("100.00")
             )
@@ -119,6 +119,41 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 content = objectMapper.writeValueAsString(request)
             }.andExpect {
                 status { isBadRequest() }
+            }
+        }
+
+        @Test
+        fun `backward direction (savings to checking) success`() {
+            // Сначала пополним savings, потом переведём обратно
+            mockMvc.post("/api/v1/transactions/savings") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(
+                    TestDataFactory.transferRequest(
+                        checkingAccountNumber, savingsAccountNumber, amount = BigDecimal("4000.00")
+                    )
+                )
+            }.andExpect { status { isCreated() } }
+
+            val backward = TestDataFactory.transferRequest(
+                savingsAccountNumber, checkingAccountNumber,
+                amount = BigDecimal("1500.00"), description = "Возврат на расчётный"
+            )
+
+            mockMvc.post("/api/v1/transactions/savings") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(backward)
+            }.andExpect {
+                status { isCreated() }
+                jsonPath("$.transactionType") { value("TRANSFER_SAVINGS") }
+                jsonPath("$.sourceAccountNumber") { value(savingsAccountNumber) }
+                jsonPath("$.destinationAccountNumber") { value(checkingAccountNumber) }
+            }
+
+            mockMvc.get("/api/v1/accounts/$savingsAccountNumber").andExpect {
+                jsonPath("$.balance") { value(2500.0) }
+            }
+            mockMvc.get("/api/v1/accounts/$checkingAccountNumber").andExpect {
+                jsonPath("$.balance") { value(7500.0) }
             }
         }
     }
@@ -186,6 +221,66 @@ class TransactionIntegrationTest : IntegrationTestBase() {
     }
 
     @Nested
+    inner class TransferChecking {
+
+        @Test
+        fun `success and balances updated`() {
+            val secondCheckingNumber = api.createAccount(userId, "CHECKING")
+
+            val request = TestDataFactory.transferRequest(
+                checkingAccountNumber, secondCheckingNumber,
+                amount = BigDecimal("2500.00"), description = "Между расчётными"
+            )
+
+            mockMvc.post("/api/v1/transactions/checking") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(request)
+            }.andExpect {
+                status { isCreated() }
+                jsonPath("$.transactionType") { value("TRANSFER_CHECKING") }
+                jsonPath("$.status") { value("COMPLETED") }
+                jsonPath("$.amount") { value(2500.0) }
+            }
+
+            mockMvc.get("/api/v1/accounts/$checkingAccountNumber").andExpect {
+                jsonPath("$.balance") { value(7500.0) }
+            }
+
+            mockMvc.get("/api/v1/accounts/$secondCheckingNumber").andExpect {
+                jsonPath("$.balance") { value(2500.0) }
+            }
+        }
+
+        @Test
+        fun `same source and destination returns 400`() {
+            val request = TestDataFactory.transferRequest(
+                checkingAccountNumber, checkingAccountNumber, amount = BigDecimal("100.00")
+            )
+
+            mockMvc.post("/api/v1/transactions/checking") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(request)
+            }.andExpect {
+                status { isBadRequest() }
+            }
+        }
+
+        @Test
+        fun `non-checking destination returns 400`() {
+            val request = TestDataFactory.transferRequest(
+                checkingAccountNumber, savingsAccountNumber, amount = BigDecimal("100.00")
+            )
+
+            mockMvc.post("/api/v1/transactions/checking") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(request)
+            }.andExpect {
+                status { isBadRequest() }
+            }
+        }
+    }
+
+    @Nested
     inner class MoneyGift {
 
         @Test
@@ -206,129 +301,6 @@ class TransactionIntegrationTest : IntegrationTestBase() {
 
             mockMvc.get("/api/v1/accounts/$savingsAccountNumber").andExpect {
                 jsonPath("$.balance") { value(5000.0) }
-            }
-        }
-    }
-
-    @Nested
-    inner class Compensation {
-
-        @Test
-        fun `credits destination account`() {
-            val request = TestDataFactory.compensationRequest(
-                checkingAccountNumber, amount = BigDecimal("750.00"), description = "Возврат средств"
-            )
-
-            mockMvc.post("/api/v1/transactions/compensation") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
-                status { isCreated() }
-                jsonPath("$.transactionType") { value("COMPENSATION") }
-                jsonPath("$.status") { value("COMPLETED") }
-                jsonPath("$.amount") { value(750.0) }
-                jsonPath("$.destinationAccountNumber") { value(checkingAccountNumber) }
-            }
-
-            mockMvc.get("/api/v1/accounts/$checkingAccountNumber").andExpect {
-                jsonPath("$.balance") { value(10750.0) }
-            }
-        }
-
-        @Test
-        fun `idempotency returns same response`() {
-            val request = TestDataFactory.compensationRequest(checkingAccountNumber, amount = BigDecimal("200.00"))
-
-            mockMvc.post("/api/v1/transactions/compensation") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect { status { isCreated() } }
-
-            mockMvc.post("/api/v1/transactions/compensation") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
-                status { isCreated() }
-                jsonPath("$.transactionType") { value("COMPENSATION") }
-            }
-
-            mockMvc.get("/api/v1/accounts/$checkingAccountNumber").andExpect {
-                jsonPath("$.balance") { value(10200.0) }
-            }
-        }
-
-        @Test
-        fun `account not found returns 404`() {
-            val request = TestDataFactory.compensationRequest("9999999999999999999")
-
-            mockMvc.post("/api/v1/transactions/compensation") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
-                status { isNotFound() }
-            }
-        }
-    }
-
-    @Nested
-    inner class CreditPayment {
-
-        @Test
-        fun `debits source and credits destination`() {
-            val depositAccountNumber = api.createAccount(userId, "DEPOSIT")
-
-            val request = TestDataFactory.creditPaymentRequest(
-                checkingAccountNumber, depositAccountNumber,
-                amount = BigDecimal("1500.00"), description = "Выплата по кредиту"
-            )
-
-            mockMvc.post("/api/v1/transactions/credit-payment") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
-                status { isCreated() }
-                jsonPath("$.transactionType") { value("CREDIT_PAYMENT") }
-                jsonPath("$.status") { value("COMPLETED") }
-                jsonPath("$.amount") { value(1500.0) }
-                jsonPath("$.sourceAccountNumber") { value(checkingAccountNumber) }
-                jsonPath("$.destinationAccountNumber") { value(depositAccountNumber) }
-            }
-
-            mockMvc.get("/api/v1/accounts/$checkingAccountNumber").andExpect {
-                jsonPath("$.balance") { value(8500.0) }
-            }
-
-            mockMvc.get("/api/v1/accounts/$depositAccountNumber").andExpect {
-                jsonPath("$.balance") { value(1500.0) }
-            }
-        }
-
-        @Test
-        fun `source account not found returns 404`() {
-            val request = TestDataFactory.creditPaymentRequest("9999999999999999999", checkingAccountNumber)
-
-            mockMvc.post("/api/v1/transactions/credit-payment") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
-                status { isNotFound() }
-            }
-        }
-
-        @Test
-        fun `insufficient funds returns 400`() {
-            val depositAccountNumber = api.createAccount(userId, "DEPOSIT")
-
-            val request = TestDataFactory.creditPaymentRequest(
-                checkingAccountNumber, depositAccountNumber,
-                amount = BigDecimal("999999.00")
-            )
-
-            mockMvc.post("/api/v1/transactions/credit-payment") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(request)
-            }.andExpect {
-                status { isBadRequest() }
             }
         }
     }

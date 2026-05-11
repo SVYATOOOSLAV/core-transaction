@@ -11,6 +11,7 @@ services:
     command: ["postgres", "-c", "timezone=Europe/Moscow"]
     volumes:
       - transaction_pgdata:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
     ports:
       - "5434:5432"
     restart: always

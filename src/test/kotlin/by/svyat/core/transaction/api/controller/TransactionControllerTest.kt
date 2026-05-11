@@ -111,6 +111,25 @@ class TransactionControllerTest {
         }
     }
 
+    @Test
+    fun `POST checking - returns 201`() {
+        every { transactionService.transferToChecking(any()) } returns txResponse(
+            TransactionType.TRANSFER_CHECKING,
+            sourceAccountNumber = "1000000000000000001",
+            destAccountNumber = "1000000000000000002"
+        )
+
+        val request = TransferRequest(UUID.randomUUID(), "1000000000000000001", "1000000000000000002", BigDecimal("500.00"), null)
+
+        mockMvc.post("/api/v1/transactions/checking") {
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(request)
+        }.andExpect {
+            status { isCreated() }
+            jsonPath("$.transactionType") { value("TRANSFER_CHECKING") }
+        }
+    }
+
     // ===== Interbank transfer =====
 
     @Test
@@ -161,34 +180,6 @@ class TransactionControllerTest {
         }.andExpect {
             status { isCreated() }
             jsonPath("$.transactionType") { value("MONEY_GIFT") }
-        }
-    }
-
-    @Test
-    fun `POST compensation - returns 201`() {
-        every { transactionService.processCompensation(any()) } returns txResponse(TransactionType.COMPENSATION, sourceAccountNumber = null)
-
-        val request = CompensationRequest(UUID.randomUUID(), "1000000000000000001", BigDecimal("500"), null)
-
-        mockMvc.post("/api/v1/transactions/compensation") {
-            contentType = MediaType.APPLICATION_JSON
-            content = objectMapper.writeValueAsString(request)
-        }.andExpect {
-            status { isCreated() }
-        }
-    }
-
-    @Test
-    fun `POST credit-payment - returns 201`() {
-        every { transactionService.processCreditPayment(any()) } returns txResponse(TransactionType.CREDIT_PAYMENT)
-
-        val request = CreditPaymentRequest(UUID.randomUUID(), "1000000000000000001", "3000000000000000001", BigDecimal("300"), null)
-
-        mockMvc.post("/api/v1/transactions/credit-payment") {
-            contentType = MediaType.APPLICATION_JSON
-            content = objectMapper.writeValueAsString(request)
-        }.andExpect {
-            status { isCreated() }
         }
     }
 

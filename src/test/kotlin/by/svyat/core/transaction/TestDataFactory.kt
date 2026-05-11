@@ -1,9 +1,7 @@
 package by.svyat.core.transaction
 
-import by.svyat.core.transaction.api.dto.request.CompensationRequest
 import by.svyat.core.transaction.api.dto.request.CreateAccountRequest
 import by.svyat.core.transaction.api.dto.request.CreateUserRequest
-import by.svyat.core.transaction.api.dto.request.CreditPaymentRequest
 import by.svyat.core.transaction.api.dto.request.InterbankTransferRequest
 import by.svyat.core.transaction.api.dto.request.MoneyGiftRequest
 import by.svyat.core.transaction.api.dto.request.SbpTransferRequest
@@ -41,21 +39,6 @@ object TestDataFactory {
         description: String? = null,
         idempotencyKey: UUID = UUID.randomUUID()
     ) = MoneyGiftRequest(idempotencyKey, destinationAccountNumber, amount, description)
-
-    fun compensationRequest(
-        destinationAccountNumber: String,
-        amount: BigDecimal = BigDecimal("500.00"),
-        description: String? = null,
-        idempotencyKey: UUID = UUID.randomUUID()
-    ) = CompensationRequest(idempotencyKey, destinationAccountNumber, amount, description)
-
-    fun creditPaymentRequest(
-        sourceAccountNumber: String,
-        destinationAccountNumber: String,
-        amount: BigDecimal = BigDecimal("300.00"),
-        description: String? = null,
-        idempotencyKey: UUID = UUID.randomUUID()
-    ) = CreditPaymentRequest(idempotencyKey, sourceAccountNumber, destinationAccountNumber, amount, description)
 
     fun interbankTransferRequest(
         sourceCardNumber: String,

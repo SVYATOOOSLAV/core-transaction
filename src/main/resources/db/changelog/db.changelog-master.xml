@@ -14,5 +14,7 @@
     <include file="db/changelog/migrations/007-create-outbox-consumer-offsets.xml"/>
     <include file="db/changelog/migrations/008-create-outbox-partition-locks.xml"/>
     <include file="db/changelog/migrations/009-create-card-sequence.xml"/>
+    <include file="db/changelog/migrations/010-merge-compensation-into-money-gift.xml"/>
+    <include file="db/changelog/migrations/011-add-transfer-checking.xml"/>
 
 </databaseChangeLog>

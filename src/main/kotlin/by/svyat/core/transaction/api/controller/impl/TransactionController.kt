@@ -4,8 +4,6 @@ import by.svyat.core.transaction.api.controller.TransactionApi
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
-import by.svyat.core.transaction.api.dto.request.CompensationRequest
-import by.svyat.core.transaction.api.dto.request.CreditPaymentRequest
 import by.svyat.core.transaction.api.dto.request.InterbankTransferRequest
 import by.svyat.core.transaction.api.dto.request.MoneyGiftRequest
 import by.svyat.core.transaction.api.dto.request.SbpTransferRequest
@@ -30,6 +28,10 @@ class TransactionController(
         return ResponseEntity(transactionService.transferToBrokerage(request), HttpStatus.CREATED)
     }
 
+    override fun transferToChecking(request: TransferRequest): ResponseEntity<TransactionResponse> {
+        return ResponseEntity(transactionService.transferToChecking(request), HttpStatus.CREATED)
+    }
+
     override fun interbankTransfer(request: InterbankTransferRequest): ResponseEntity<TransactionResponse> {
         return ResponseEntity(transactionService.interbankTransfer(request), HttpStatus.CREATED)
     }
@@ -40,14 +42,6 @@ class TransactionController(
 
     override fun processMoneyGift(request: MoneyGiftRequest): ResponseEntity<TransactionResponse> {
         return ResponseEntity(transactionService.processMoneyGift(request), HttpStatus.CREATED)
-    }
-
-    override fun processCompensation(request: CompensationRequest): ResponseEntity<TransactionResponse> {
-        return ResponseEntity(transactionService.processCompensation(request), HttpStatus.CREATED)
-    }
-
-    override fun processCreditPayment(request: CreditPaymentRequest): ResponseEntity<TransactionResponse> {
-        return ResponseEntity(transactionService.processCreditPayment(request), HttpStatus.CREATED)
     }
 
     override fun getTransaction(id: Long): ResponseEntity<TransactionResponse> {

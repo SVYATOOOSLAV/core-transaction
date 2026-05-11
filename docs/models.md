@@ -125,11 +125,10 @@
 | TRANSFER_SAVINGS   | debit-credit | Перевод на накопительный счет  |
 | TRANSFER_DEPOSIT   | debit-credit | Перевод на депозитный счет     |
 | TRANSFER_BROKERAGE | debit-credit | Перевод на брокерский счет     |
+| TRANSFER_CHECKING  | debit-credit | Перевод между двумя расчётными счетами |
 | INTERBANK_TRANSFER | debit-credit | Межбанковский перевод          |
 | SBP_TRANSFER       | debit-credit | Перевод через СБП              |
 | MONEY_GIFT         | credit-only  | Денежный подарок               |
-| COMPENSATION       | credit-only  | Компенсация                    |
-| CREDIT_PAYMENT     | debit-credit | Кредитный платеж               |
 
 ### TransactionStatus
 

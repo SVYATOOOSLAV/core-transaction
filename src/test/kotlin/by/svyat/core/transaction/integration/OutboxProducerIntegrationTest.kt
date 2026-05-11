@@ -174,21 +174,21 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
 
         @Test
         fun `credit-only operation uses destination account number as partition key`() {
-            val request = TestDataFactory.compensationRequest(
+            val request = TestDataFactory.moneyGiftRequest(
                 destinationAccountNumber = checkingAccountNumber,
                 amount = BigDecimal("200.00")
             )
 
-            mockMvc.post("/api/v1/transactions/compensation") {
+            mockMvc.post("/api/v1/transactions/gift") {
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(request)
             }.andExpect {
                 status { isCreated() }
             }
 
-            val compensationMessage = outboxMessageRepository.findAll().sortedBy { it.id }.last()
+            val giftMessage = outboxMessageRepository.findAll().sortedBy { it.id }.last()
 
-            assertEquals(checkingAccountNumber, compensationMessage.partitionKey)
+            assertEquals(checkingAccountNumber, giftMessage.partitionKey)
         }
 
         @Test
@@ -371,15 +371,7 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 )
             }.andExpect { status { isCreated() } }
 
-            // 2. Compensation
-            mockMvc.post("/api/v1/transactions/compensation") {
-                contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(
-                    TestDataFactory.compensationRequest(checkingAccountNumber, BigDecimal("50.00"))
-                )
-            }.andExpect { status { isCreated() } }
-
-            // 3. Money gift
+            // 2. Money gift
             mockMvc.post("/api/v1/transactions/gift") {
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(
@@ -387,16 +379,15 @@ class OutboxProducerIntegrationTest : IntegrationTestBase() {
                 )
             }.andExpect { status { isCreated() } }
 
-            assertEquals(initialCount + 3, outboxMessageRepository.count())
+            assertEquals(initialCount + 2, outboxMessageRepository.count())
 
             val newMessages = outboxMessageRepository.findAll()
                 .sortedBy { it.id }
-                .takeLast(3)
+                .takeLast(2)
 
             val payloadTypes = newMessages.map { objectMapper.readTree(it.payload)["type"].asText() }
 
             assertTrue("TRANSFER_SAVINGS" in payloadTypes)
-            assertTrue("COMPENSATION" in payloadTypes)
             assertTrue("MONEY_GIFT" in payloadTypes)
         }
     }
