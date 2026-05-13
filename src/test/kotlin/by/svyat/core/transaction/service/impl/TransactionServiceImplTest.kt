@@ -534,6 +534,25 @@ class TransactionServiceImplTest {
     }
 
     @Test
+    fun `sbpTransfer - recipient is the sender throws BAD_REQUEST`() {
+        val key = UUID.randomUUID()
+        val recipient = userEntity(id = 1L, phone = "+79991234567")
+        val destAccount = accountEntity(id = 3L, accountNumber = "1000000000000000003", type = AccountType.CHECKING)
+        val sourceAccount = accountEntity(id = 1L, accountNumber = "1000000000000000001", balance = BigDecimal("5000"))
+
+        stubIdempotency(key)
+        every { userRepository.findByPhoneNumber("+79991234567") } returns recipient
+        every { accountRepository.findByUserIdAndAccountType(1L, AccountType.CHECKING) } returns destAccount
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000001") } returns sourceAccount
+        every { accountRepository.findByAccountNumberForUpdate("1000000000000000003") } returns destAccount
+
+        val ex = assertThrows<BusinessException> {
+            service.sbpTransfer(SbpTransferRequest(key, "1000000000000000001", "+79991234567", BigDecimal("500"), null))
+        }
+        assertEquals(HttpStatus.BAD_REQUEST, ex.httpStatus)
+    }
+
+    @Test
     fun `sbpTransfer - recipient has no checking account throws NOT_FOUND`() {
         val key = UUID.randomUUID()
         val recipient = userEntity(id = 2L, phone = "+79990000000")

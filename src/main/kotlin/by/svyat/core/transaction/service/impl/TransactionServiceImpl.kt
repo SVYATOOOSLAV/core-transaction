@@ -153,6 +153,13 @@ class TransactionServiceImpl(
             destAccountUnlocked.accountNumber
         )
 
+        if (sourceAccount.user.id == recipientUser.id) {
+            throw BusinessException(
+                HttpStatus.BAD_REQUEST,
+                "SBP transfer to your own account is not allowed"
+            )
+        }
+
         if (sourceAccount.accountType != AccountType.CHECKING) {
             throw BusinessException(
                 HttpStatus.BAD_REQUEST,

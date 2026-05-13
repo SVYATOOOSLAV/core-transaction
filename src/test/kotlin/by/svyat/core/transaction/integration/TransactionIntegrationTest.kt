@@ -305,6 +305,21 @@ class TransactionIntegrationTest : IntegrationTestBase() {
                 status { isBadRequest() }
             }
         }
+
+        @Test
+        fun `recipient phone belongs to sender returns 400 and balance unchanged`() {
+            val request = TestDataFactory.sbpTransferRequest(
+                checkingAccountNumber, "+79991234567", amount = BigDecimal("2000.00")
+            )
+
+            authPost("/api/v1/transactions/sbp", request).andExpect {
+                status { isBadRequest() }
+            }
+
+            authGet("/api/v1/accounts/$checkingAccountNumber").andExpect {
+                jsonPath("$.balance") { value(10000.0) }
+            }
+        }
     }
 
     @Nested
