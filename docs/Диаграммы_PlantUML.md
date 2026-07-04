@@ -646,7 +646,6 @@ rectangle "core-transaction" {
     usecase "Межбанковский перевод" as UC5
     usecase "Денежный подарок" as UC6
     usecase "Компенсация" as UC7
-    usecase "Погашение кредита" as UC8
     usecase "Проверка баланса" as UC_BAL
     usecase "Блокировка счетов" as UC_LOCK
     usecase "Сохранение события\nв Outbox" as UC_OUT
@@ -668,14 +667,12 @@ user --> UC4
 user --> UC5
 user --> UC6
 user --> UC7
-user --> UC8
 user --> UC9
 user --> UC10
 
 UC3 ..> UC_BAL : <<include>>
 UC4 ..> UC_BAL : <<include>>
 UC5 ..> UC_BAL : <<include>>
-UC8 ..> UC_BAL : <<include>>
 
 UC3 ..> UC_LOCK : <<include>>
 UC3 ..> UC_OUT : <<include>>
@@ -683,7 +680,6 @@ UC4 ..> UC_OUT : <<include>>
 UC5 ..> UC_OUT : <<include>>
 UC6 ..> UC_OUT : <<include>>
 UC7 ..> UC_OUT : <<include>>
-UC8 ..> UC_OUT : <<include>>
 
 UC9 ..> UC_FILT : <<extend>>
 UC10 ..> UC_FMT : <<extend>>
